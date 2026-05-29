@@ -256,7 +256,7 @@ async function main() {
         fs.mkdirSync(dailyVideosDir, { recursive: true });
       }
 
-      const finalVideoPath = path.join(dailyVideosDir, `${prefix}_final_video_${tamilDateStr}.mp4`);
+      const finalVideoPath = path.join(dailyVideosDir, `${tamilDateStr}_${prefix}_final_video.mp4`);
       await renderMedia({
         composition: mainComp!,
         serveUrl: bundled,
