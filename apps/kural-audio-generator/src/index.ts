@@ -40,9 +40,9 @@ async function run() {
   
   const publicDir = path.resolve(__dirname, '../../../public');
   const kuralDir = path.join(publicDir, 'Kurals', adhikaaramStr, kuralStr);
-  const combinedAudioOutPath = path.join(kuralDir, `${kuralStr.replace('Kural_', '')}_kural_combined_audio.mp3`);
-  const verseOutPath = path.join(kuralDir, `${kuralStr.replace('Kural_', '')}_kural_verse_audio.mp3`);
-  const meaningOutPath = path.join(kuralDir, `${kuralStr.replace('Kural_', '')}_kural_meaning_audio.mp3`);
+  const combinedAudioOutPath = path.join(kuralDir, `${kuralStr.replace('Kural_', '')}_kural_meaning_audio.mp3`);
+  const verseOutPath = path.join(kuralDir, `${kuralStr.replace('Kural_', '')}_kural_audio.mp3`);
+  const meaningOutPath = path.join(kuralDir, `${kuralStr.replace('Kural_', '')}_meaning_audio.mp3`);
 
   if (!fs.existsSync(kuralDir)) {
     fs.mkdirSync(kuralDir, { recursive: true });
