@@ -364,12 +364,30 @@ async function run() {
     
     // Check if master audio exists
     if (fs.existsSync(masterAudioOutPath)) {
-       console.log(`\nSplitting master audio at ${splitAt} seconds using ffmpeg...`);
+       console.log(`\n=======================================================`);
+       console.log(`MASTER AUDIO DOWNLOADED!`);
+       console.log(`Path: ${masterAudioOutPath}`);
+       console.log(`Please listen to the audio and determine the exact second where the Verse ends and the Meaning begins.`);
+       console.log(`=======================================================\n`);
+       
+       const finalSplitAt = await new Promise<number>((resolve) => {
+         const rl = require('readline').createInterface({
+           input: process.stdin,
+           output: process.stdout
+         });
+         rl.question(`Enter the split point in seconds (e.g., 14.5) [default ${splitAt}]: `, (answer: string) => {
+           rl.close();
+           const parsed = parseFloat(answer);
+           resolve(isNaN(parsed) ? splitAt : parsed);
+         });
+       });
+
+       console.log(`\nSplitting master audio at ${finalSplitAt} seconds using ffmpeg...`);
        try {
            // Extract Verse (0 to splitAt)
-           execSync(`"${ffmpegPath}" -y -i "${masterAudioOutPath}" -t ${splitAt} -c copy "${kuralAudioOutPath}"`, { stdio: 'ignore' });
+           execSync(`"${ffmpegPath}" -y -i "${masterAudioOutPath}" -t ${finalSplitAt} -c copy "${kuralAudioOutPath}"`, { stdio: 'ignore' });
            // Extract Meaning (splitAt to end)
-           execSync(`"${ffmpegPath}" -y -i "${masterAudioOutPath}" -ss ${splitAt} -c copy "${meaningAudioOutPath}"`, { stdio: 'ignore' });
+           execSync(`"${ffmpegPath}" -y -i "${masterAudioOutPath}" -ss ${finalSplitAt} -c copy "${meaningAudioOutPath}"`, { stdio: 'ignore' });
            
            console.log(`Successfully split audio into verse and meaning!`);
        } catch (err) {
