@@ -1,6 +1,7 @@
-import { interpolate, useCurrentFrame, useVideoConfig, Audio, Img, staticFile } from 'remotion';
+import { interpolate, useCurrentFrame, useVideoConfig, Audio, Img, staticFile, AbsoluteFill } from 'remotion';
 import React from 'react';
 import { SharedBackground } from './SharedBackground';
+import { useTheme } from '../theme';
 
 export const Part2Kural: React.FC<{
   title: string;
@@ -11,6 +12,7 @@ export const Part2Kural: React.FC<{
   audioPath?: string;
   imagePath?: string;
 }> = ({ title, line1, line2, transliteration1, transliteration2, audioPath, imagePath }) => {
+  const theme = useTheme();
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
 
@@ -29,59 +31,77 @@ export const Part2Kural: React.FC<{
   );
 
   return (
-    <div style={{ width: '100%', height: '100%', opacity, transform: `translateY(${translateY}px)` }}>
-      <SharedBackground>
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          height: '100%',
-          width: '100%',
-          paddingTop: '60px',
-          textAlign: 'center'
-        }}>
-          
-          {/* Title & Divider */}
-          <h1 style={{ fontSize: '90px', color: '#000', margin: 0, fontWeight: 800 }}>{title}</h1>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', margin: '30px 0 60px 0' }}>
-            <div style={{ width: '150px', height: '3px', backgroundColor: '#000' }} />
-            <div style={{ width: '15px', height: '15px', backgroundColor: '#000', transform: 'rotate(45deg)' }} />
-            <div style={{ width: '150px', height: '3px', backgroundColor: '#000' }} />
-          </div>
-
-          {/* Tamil Verse */}
-          <div style={{ marginBottom: '60px', padding: '0 40px' }}>
-            <h2 style={{ fontSize: '65px', color: '#174ea6', margin: '0 0 15px 0', fontWeight: 700, lineHeight: 1.4 }}>{line1}</h2>
-            <h2 style={{ fontSize: '65px', color: '#174ea6', margin: 0, fontWeight: 700, lineHeight: 1.4 }}>{line2}</h2>
-          </div>
-
-          {/* English Transliteration */}
-          <div style={{ marginBottom: '80px', padding: '0 40px' }}>
-            <h3 style={{ fontSize: '55px', color: '#174ea6', margin: '0 0 15px 0', fontWeight: 600, lineHeight: 1.4 }}>{transliteration1}</h3>
-            <h3 style={{ fontSize: '55px', color: '#174ea6', margin: 0, fontWeight: 600, lineHeight: 1.4 }}>{transliteration2}</h3>
-          </div>
-
-          {/* Illustrative Image */}
+    <AbsoluteFill style={{ overflow: 'hidden', backgroundColor: theme.bgCanvas }}>
+      <div style={{ width: '100%', height: '100%', opacity, transform: `translateY(${translateY}px)` }}>
+        <SharedBackground hideBorder={true}>
           <div style={{ 
-            marginTop: 'auto', 
-            marginBottom: '40px',
-            width: '90%', 
-            height: '650px', 
-            borderRadius: '60px', 
-            overflow: 'hidden',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.2)'
+            position: 'relative', 
+            width: '100%', 
+            height: '100%', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center',
+            padding: '80px 4% 60px 4%', // Added bottom margin
+            boxSizing: 'border-box'
           }}>
-            {imagePath ? (
-              <Img src={staticFile(imagePath)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              <div style={{ width: '100%', height: '100%', backgroundColor: '#e2e8f0' }} />
-            )}
-          </div>
+            
+            {/* Title */}
+            <h1 style={{ 
+              fontSize: 'clamp(40px, 6vw, 75px)', 
+              color: theme.primaryText, 
+              margin: '0 0 80px 0', 
+              fontWeight: 800,
+              whiteSpace: 'nowrap',
+              width: '100%',
+              textAlign: 'center'
+            }}>
+              {title}
+            </h1>
 
-        </div>
-      </SharedBackground>
-      
-      {audioPath && <Audio src={staticFile(audioPath)} />}
-    </div>
+            {/* Tamil Verse */}
+            <h2 style={{ 
+              fontSize: '55px', 
+              color: theme.highlightText, 
+              margin: '0 0 60px 0', 
+              fontWeight: 700, 
+              lineHeight: 1.6, 
+              textAlign: 'center', 
+              width: '100%' 
+            }}>
+              {line1}<br/>{line2}
+            </h2>
+
+            {/* English Transliteration */}
+            <h3 style={{ 
+              fontSize: '45px', 
+              color: theme.highlightText, 
+              margin: '0 0 80px 0', 
+              fontWeight: 600, 
+              lineHeight: 1.6, 
+              textAlign: 'center', 
+              width: '100%' 
+            }}>
+              {transliteration1}<br/>{transliteration2}
+            </h3>
+
+            {/* Image (flexGrow to take remaining space) */}
+            <div style={{ 
+              width: '100%', 
+              flexGrow: 1, 
+              overflow: 'hidden' 
+            }}>
+              {imagePath ? (
+                <Img src={staticFile(imagePath)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <div style={{ width: '100%', height: '100%', backgroundColor: '#e2e8f0' }} />
+              )}
+            </div>
+
+          </div>
+        </SharedBackground>
+        
+        {audioPath && <Audio src={staticFile(audioPath)} />}
+      </div>
+    </AbsoluteFill>
   );
 };

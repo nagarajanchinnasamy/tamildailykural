@@ -1,6 +1,7 @@
-import { interpolate, useCurrentFrame, useVideoConfig } from 'remotion';
+import { interpolate, useCurrentFrame, useVideoConfig, AbsoluteFill } from 'remotion';
 import React from 'react';
 import { SharedBackground } from './SharedBackground';
+import { useTheme } from '../theme';
 
 const TAMIL_DAYS = [
   'ஞாயிறு', 'திங்கள்', 'செவ்வாய்', 'அறிவன்', 'வியாழன்', 'வெள்ளி', 'காரி'
@@ -89,7 +90,8 @@ const getPureTamilYearName = (gregorianYear: number): string => {
   return PURE_TAMIL_YEARS[index];
 };
 
-export const Part1Calendar: React.FC<{ dateStr: string }> = ({ dateStr }) => {
+export const Part1Calendar: React.FC<{ dateStr: string, fadeInOnly?: boolean, fadeOutOnly?: boolean }> = ({ dateStr, fadeInOnly, fadeOutOnly }) => {
+  const theme = useTheme();
   const dateObj = new Date(`${dateStr}T00:00:00`);
   const dayOfWeek = TAMIL_DAYS[dateObj.getDay()];
   
@@ -103,7 +105,12 @@ export const Part1Calendar: React.FC<{ dateStr: string }> = ({ dateStr }) => {
   const opacity = interpolate(
     frame,
     [0, 15, durationInFrames - 15, durationInFrames],
-    [0, 1, 1, 0],
+    [
+      fadeOutOnly ? 1 : 0, 
+      1, 
+      1, 
+      fadeInOnly ? 1 : 0
+    ],
     { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
   );
 
@@ -116,50 +123,46 @@ export const Part1Calendar: React.FC<{ dateStr: string }> = ({ dateStr }) => {
   const mmdd = `${mm}-${dd}`;
 
   return (
-    <div style={{ opacity, width: '100%', height: '100%' }}>
-      <SharedBackground>
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'flex-start',
-          height: '100%',
-          width: '100%',
-          paddingTop: '60px'
-        }}>
-          <h2 style={{ 
-            fontSize: 'clamp(40px, 6vw, 65px)', 
-            color: '#000', 
-            margin: 0, 
-            fontWeight: 700, 
-            whiteSpace: 'nowrap',
-            width: '100%',
-            textAlign: 'center'
-          }}>திருவள்ளுவர் ஆண்டு</h2>
-          <h1 style={{ fontSize: 'clamp(120px, 16vw, 180px)', color: '#174ea6', margin: '15px 0', fontWeight: 800 }}>{thiruvalluvarYear}</h1>
-          <h2 style={{ fontSize: 'clamp(50px, 7vw, 80px)', color: '#000', margin: 0, fontWeight: 700, textAlign: 'center' }}>{tamilYearName}</h2>
-          
-          <div style={{ marginTop: '80px', marginBottom: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <h1 style={{ fontSize: '260px', color: '#174ea6', margin: 0, fontWeight: 800, lineHeight: 1.1 }}>{mmdd}</h1>
-            <h2 style={{ fontSize: '90px', color: '#000', margin: '20px 0 0 0', fontWeight: 700 }}>{dayOfWeek}</h2>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', width: '90%', marginTop: 'auto', marginBottom: '80px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <h3 style={{ fontSize: '65px', color: '#000', margin: 0, fontWeight: 700 }}>திங்கள்</h3>
-              <h2 style={{ fontSize: '90px', color: '#174ea6', margin: '10px 0 0 0', fontWeight: 800 }}>{tamilMonth}</h2>
+    <AbsoluteFill style={{ overflow: 'hidden', backgroundColor: theme.bgCanvas }}>
+      <div style={{ opacity, width: '100%', height: '100%' }}>
+        <SharedBackground>
+          <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+            
+            {/* Block 1: Top (Thiruvalluvar Aandu, year number, year name) */}
+            <div style={{ position: 'absolute', top: '60px', left: 0, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <h2 style={{ fontSize: '70px', color: '#000', margin: 0, fontWeight: 700, whiteSpace: 'nowrap' }}>திருவள்ளுவர் ஆண்டு</h2>
+              <h1 style={{ fontSize: '160px', color: '#174ea6', margin: '15px 0', fontWeight: 800 }}>{thiruvalluvarYear}</h1>
+              <h2 style={{ fontSize: '70px', color: '#000', margin: 0, fontWeight: 700 }}>{tamilYearName}</h2>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <h3 style={{ fontSize: '65px', color: '#000', margin: 0, fontWeight: 700 }}>பருவம்</h3>
-              <h2 style={{ fontSize: '90px', color: '#174ea6', margin: '10px 0 0 0', fontWeight: 800 }}>{tamilSeason}</h2>
+            
+            {/* Block 2-a: Dead Center (02-13, Arivan) */}
+            <div style={{ position: 'absolute', top: '50%', left: 0, width: '100%', transform: 'translateY(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <h1 style={{ fontSize: '280px', color: '#174ea6', margin: 0, fontWeight: 800, lineHeight: 1.1 }}>{mmdd}</h1>
+              <h2 style={{ fontSize: '100px', color: '#000', margin: '20px 0 0 0', fontWeight: 700 }}>{dayOfWeek}</h2>
             </div>
-          </div>
 
-          <div style={{ marginTop: 'auto', paddingBottom: '40px' }}>
-            <h3 style={{ fontSize: '50px', color: '#174ea6', margin: 0, fontWeight: 600 }}>{dateStr}</h3>
+            {/* Block 2-b: Lower Center (Thingal, Paruvam) */}
+            <div style={{ position: 'absolute', top: '75%', left: 0, width: '100%', transform: 'translateY(-50%)', display: 'flex', justifyContent: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', width: '85%' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <h3 style={{ fontSize: '70px', color: '#000', margin: 0, fontWeight: 700 }}>திங்கள்</h3>
+                  <h2 style={{ fontSize: '100px', color: '#174ea6', margin: '10px 0 0 0', fontWeight: 800 }}>{tamilMonth}</h2>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <h3 style={{ fontSize: '70px', color: '#000', margin: 0, fontWeight: 700 }}>பருவம்</h3>
+                  <h2 style={{ fontSize: '100px', color: '#174ea6', margin: '10px 0 0 0', fontWeight: 800 }}>{tamilSeason}</h2>
+                </div>
+              </div>
+            </div>
+
+            {/* Block 3: Footnote (Gregorian day) */}
+            <div style={{ position: 'absolute', bottom: '40px', left: 0, width: '100%', display: 'flex', justifyContent: 'center' }}>
+              <h3 style={{ fontSize: '45px', color: '#174ea6', margin: 0, fontWeight: 600 }}>{dateStr}</h3>
+            </div>
+
           </div>
-        </div>
-      </SharedBackground>
-    </div>
+        </SharedBackground>
+      </div>
+    </AbsoluteFill>
   );
 };

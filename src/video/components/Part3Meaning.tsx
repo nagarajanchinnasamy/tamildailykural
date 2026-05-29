@@ -1,14 +1,16 @@
-import { interpolate, useCurrentFrame, useVideoConfig, Audio, Img, staticFile } from 'remotion';
+import { interpolate, useCurrentFrame, useVideoConfig, Audio, Img, staticFile, AbsoluteFill } from 'remotion';
 import React from 'react';
 import { SharedBackground } from './SharedBackground';
+import { useTheme } from '../theme';
 
 export const Part3Meaning: React.FC<{
   title: string;
-  meaning: string;
-  translation: string;
+  meaningTamil: string;
+  meaningEnglish: string;
   audioPath?: string;
   imagePath?: string;
-}> = ({ title, meaning, translation, audioPath, imagePath }) => {
+}> = ({ title, meaningTamil, meaningEnglish, audioPath, imagePath }) => {
+  const theme = useTheme();
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
 
@@ -27,56 +29,78 @@ export const Part3Meaning: React.FC<{
   );
 
   return (
-    <div style={{ width: '100%', height: '100%', opacity, transform: `translateY(${translateY}px)` }}>
-      <SharedBackground>
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          height: '100%',
-          width: '100%',
-          paddingTop: '60px',
-          textAlign: 'center'
-        }}>
-          
-          {/* Title & Divider */}
-          <h1 style={{ fontSize: '90px', color: '#000', margin: 0, fontWeight: 800 }}>{title}</h1>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', margin: '30px 0 60px 0' }}>
-            <div style={{ width: '150px', height: '3px', backgroundColor: '#000' }} />
-            <div style={{ width: '15px', height: '15px', backgroundColor: '#000', transform: 'rotate(45deg)' }} />
-            <div style={{ width: '150px', height: '3px', backgroundColor: '#000' }} />
-          </div>
-
-          {/* Illustrative Image */}
+    <AbsoluteFill style={{ overflow: 'hidden', backgroundColor: theme.bgCanvas }}>
+      <div style={{ width: '100%', height: '100%', opacity, transform: `translateY(${translateY}px)` }}>
+        <SharedBackground hideBorder={true}>
           <div style={{ 
-            marginBottom: '60px',
-            width: '90%', 
-            height: '550px', 
-            borderRadius: '60px', 
-            overflow: 'hidden',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.2)'
+            position: 'relative', 
+            width: '100%', 
+            height: '100%', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center',
+            padding: '80px 4% 60px 4%', // Added bottom padding for text
+            boxSizing: 'border-box'
           }}>
-            {imagePath ? (
-              <Img src={staticFile(imagePath)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              <div style={{ width: '100%', height: '100%', backgroundColor: '#e2e8f0' }} />
-            )}
-          </div>
+            
+            {/* Title */}
+            <h1 style={{ 
+              fontSize: 'clamp(40px, 6vw, 75px)', 
+              color: theme.primaryText, 
+              margin: '0 0 60px 0', 
+              fontWeight: 800,
+              whiteSpace: 'nowrap',
+              width: '100%',
+              textAlign: 'center'
+            }}>
+              {title}
+            </h1>
 
-          {/* Tamil Meaning */}
-          <div style={{ marginBottom: '60px', padding: '0 60px' }}>
-            <p style={{ fontSize: '55px', color: '#174ea6', margin: 0, fontWeight: 700, lineHeight: 1.5 }}>{meaning}</p>
-          </div>
+            {/* Image (flexGrow to take remaining space) */}
+            <div style={{ 
+              width: '100%', 
+              flexGrow: 1, 
+              overflow: 'hidden',
+              marginBottom: '60px'
+            }}>
+              {imagePath ? (
+                <Img src={staticFile(imagePath)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <div style={{ width: '100%', height: '100%', backgroundColor: '#e2e8f0' }} />
+              )}
+            </div>
 
-          {/* English Translation */}
-          <div style={{ padding: '0 60px' }}>
-            <p style={{ fontSize: '55px', color: '#174ea6', margin: 0, fontWeight: 600, lineHeight: 1.5 }}>{translation}</p>
-          </div>
+            {/* Tamil Meaning */}
+            <p style={{ 
+              fontSize: '45px', 
+              color: theme.highlightText, 
+              margin: '0 0 50px 0', 
+              fontWeight: 700, 
+              lineHeight: 1.6, 
+              textAlign: 'center', 
+              width: '100%' 
+            }}>
+              {meaningTamil}
+            </p>
 
-        </div>
-      </SharedBackground>
-      
-      {audioPath && <Audio src={staticFile(audioPath)} />}
-    </div>
+            {/* English Translation */}
+            <p style={{ 
+              fontSize: '45px', 
+              color: theme.highlightText, 
+              margin: '0', 
+              fontWeight: 600, 
+              lineHeight: 1.6, 
+              textAlign: 'center', 
+              width: '100%' 
+            }}>
+              {meaningEnglish}
+            </p>
+
+          </div>
+        </SharedBackground>
+        
+        {audioPath && <Audio src={staticFile(audioPath)} />}
+      </div>
+    </AbsoluteFill>
   );
 };

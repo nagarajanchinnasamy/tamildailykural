@@ -14,6 +14,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@google-cloud/text-to-speech": "^6.4.1",
     "@remotion/bundler": "^4.0.467",
     "@remotion/cli": "^4.0.467",
     "@remotion/renderer": "^4.0.467",

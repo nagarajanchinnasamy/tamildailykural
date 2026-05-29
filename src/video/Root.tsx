@@ -3,6 +3,7 @@ import { Composition } from 'remotion';
 import { MainComposition } from './MainComposition';
 import { Part2Kural } from './components/Part2Kural';
 import { Part3Meaning } from './components/Part3Meaning';
+import { THEMES } from './theme';
 import React from 'react';
 
 export const RemotionRoot: React.FC = () => {
@@ -20,7 +21,8 @@ export const RemotionRoot: React.FC = () => {
           part2Duration: 450,
           part3Duration: 600,
           kuralProps: { title: 'Test Kural', line1: 'Line 1', line2: 'Line 2', transliteration1: 'Trans 1', transliteration2: 'Trans 2' },
-          meaningProps: { title: 'Test Kural', meaning: 'Meaning here', translation: 'Translation here' }
+          meaningProps: { title: 'Test Kural', meaning: 'Meaning here', translation: 'Translation here' },
+          theme: THEMES.indigo
         }}
       />
       <Composition
@@ -49,8 +51,8 @@ export const RemotionRoot: React.FC = () => {
         height={1920}
         defaultProps={{
           title: 'தொட்டனைத் தூறும்',
-          meaning: 'எழுத்துக்கள் எல்லாம் அகரத்தை அடிப்படையாக கொண்டிருக்கின்றன.',
-          translation: "'A' leads letters; the Ancient Lord Leads and lords the entire world",
+          meaningTamil: 'எழுத்துக்கள் எல்லாம் அகரத்தை அடிப்படையாக கொண்டிருக்கின்றன.',
+          meaningEnglish: "'A' leads letters; the Ancient Lord Leads and lords the entire world",
           audioPath: undefined,
           imagePath: undefined
         }}

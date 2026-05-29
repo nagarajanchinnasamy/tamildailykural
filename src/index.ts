@@ -6,15 +6,23 @@ import { getCompositions, renderMedia } from '@remotion/renderer';
 import path from 'path';
 import fs from 'fs';
 import { getAudioDurationInSeconds } from 'get-audio-duration';
+import textToSpeech from '@google-cloud/text-to-speech';
+import util from 'util';
+import { THEMES } from './video/theme';
+
+const ttsClient = new textToSpeech.TextToSpeechClient({
+  keyFilename: path.join(process.cwd(), 'credentials.json'),
+});
 
 async function main() {
   const argv = minimist(process.argv.slice(2));
   const startDateStr = argv['start-date'];
   let days = parseInt(argv['days'], 10);
   const testKural = parseInt(argv['test-kural'], 10);
+  const themeArg = argv['theme'];
 
   if (!startDateStr || isNaN(days)) {
-    console.error("Usage: npm start -- --start-date=YYYY-MM-DD --days=N [--test-kural=N]");
+    console.error("Usage: npm start -- --start-date=YYYY-MM-DD --days=N [--test-kural=N] [--theme=theme_name]");
     process.exit(1);
   }
 
@@ -37,11 +45,6 @@ async function main() {
 
   const kuralSelector = new KuralSelector();
   let currentDate = new Date(startDateStr);
-
-  console.log('Bundling Remotion project...');
-  const bundled = await bundle(path.join(process.cwd(), 'src/video/index.ts'), () => undefined, {
-    webpackOverride: (config) => config,
-  });
 
   for (let i = 0; i < days; i++) {
     const dateStr = currentDate.toISOString().split('T')[0];
@@ -70,6 +73,44 @@ async function main() {
       const kuralAudioPath = path.join(kuralDir, `${prefix}_kural_audio.mp3`);
       const meaningAudioPath = path.join(kuralDir, `${prefix}_meaning_audio.mp3`);
       
+      if (!fs.existsSync(meaningAudioPath) && kural.tdk) {
+        console.log(`TTS meaning audio missing. Generating for Kural ${kural.Number}...`);
+        
+        // Escape special characters for SSML
+        const escapeXml = (unsafe: string) => unsafe.replace(/[<>&'"]/g, c => {
+            switch (c) {
+                case '<': return '&lt;';
+                case '>': return '&gt;';
+                case '&': return '&amp;';
+                case '\'': return '&apos;';
+                case '"': return '&quot;';
+                default: return c;
+            }
+        });
+        
+        const ssml = `<speak>
+          <prosody rate="85%">
+            <voice language="ta-IN" name="ta-IN-Wavenet-B">
+              ${escapeXml(kural.tdk)}
+            </voice>
+            <break time="1s"/>
+            <voice language="en-IN" name="en-IN-Wavenet-C">
+              ${escapeXml(kural.explanation)}
+            </voice>
+          </prosody>
+        </speak>`;
+
+        const request = {
+          input: { ssml },
+          voice: { languageCode: 'ta-IN', name: 'ta-IN-Wavenet-B' },
+          audioConfig: { audioEncoding: 'MP3' as const },
+        };
+        const [response] = await ttsClient.synthesizeSpeech(request);
+        const writeFile = util.promisify(fs.writeFile);
+        await writeFile(meaningAudioPath, response.audioContent, 'binary');
+        console.log(`Saved generated TTS audio to ${meaningAudioPath}`);
+      }
+
       let imagePath = path.join(kuralDir, `${prefix}_kural_image.png`);
       if (!fs.existsSync(imagePath)) {
         imagePath = path.join(kuralDir, `${prefix}_kural_image.jpg`);
@@ -84,7 +125,7 @@ async function main() {
       const part3Frames = Math.ceil(meaningDur * 30) + 30;
 
       const kuralProps = {
-        title: KuralSelector.getShortTitle(kural),
+        title: kural.title,
         line1: kural.Line1,
         line2: kural.Line2,
         transliteration1: kural.transliteration1,
@@ -94,21 +135,38 @@ async function main() {
       };
 
       const meaningProps = {
-        title: KuralSelector.getShortTitle(kural),
-        meaning: kural.mv,
-        translation: kural.Translation,
+        title: kural.title,
+        meaningTamil: kural.tdk,
+        meaningEnglish: kural.explanation,
         audioPath: fs.existsSync(meaningAudioPath) ? `${relativeKuralDir}/${prefix}_meaning_audio.mp3` : undefined,
         imagePath: fs.existsSync(imagePath) ? `${relativeKuralDir}/${path.basename(imagePath)}` : undefined
       };
 
+      console.log('Bundling Remotion project...');
+      const bundled = await bundle(path.join(process.cwd(), 'src/video/index.ts'), () => undefined, {
+        webpackOverride: (config) => config,
+      });
+
       console.log('Rendering Final Daily Video...');
       const totalFrames = 90 + part2Frames + part3Frames + 90; // part1 + part2 + part3 + part4
+      
+      let selectedTheme = THEMES.indigo;
+      if (themeArg && THEMES[themeArg]) {
+        selectedTheme = THEMES[themeArg];
+      } else {
+        const themeKeys = Object.keys(THEMES);
+        const randomKey = themeKeys[Math.floor(Math.random() * themeKeys.length)];
+        selectedTheme = THEMES[randomKey];
+        console.log(`No specific theme requested or invalid theme. Randomly selected theme: ${randomKey}`);
+      }
+      
       const mainProps = {
         dateStr,
         part2Duration: part2Frames,
         part3Duration: part3Frames,
         kuralProps,
-        meaningProps
+        meaningProps,
+        theme: selectedTheme
       };
       
       const compositions = await getCompositions(bundled, { inputProps: mainProps });
