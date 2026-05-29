@@ -70,7 +70,12 @@ async function run() {
       userDataDir: profilePath,
       headless: false, // Must be visible to bypass captcha/login checks easily
       defaultViewport: null,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      ignoreDefaultArgs: ['--enable-automation'],
+      args: [
+        '--no-sandbox', 
+        '--disable-setuid-sandbox', 
+        '--disable-blink-features=AutomationControlled'
+      ]
     });
   } catch (e) {
     console.error("Failed to launch Chrome:", e);
@@ -94,6 +99,24 @@ async function run() {
   await page.goto('https://gemini.google.com/app', { waitUntil: 'networkidle2' });
 
   // Focus and type into the chat input
+  console.log("\\n=======================================================");
+  console.log("WAITING FOR LOGIN:");
+  console.log("If you are not logged in, please log in now in the browser.");
+  console.log("Once you are fully logged in and on the Gemini chat page,");
+  console.log("press ENTER in this terminal to continue...");
+  console.log("=======================================================\\n");
+
+  await new Promise<void>((resolve) => {
+    const rl = require('readline').createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+    rl.question('Press ENTER when ready...', () => {
+      rl.close();
+      resolve();
+    });
+  });
+
   console.log("Entering prompt...");
   
   // Wait for the rich text editor (this selector is common for Gemini)
@@ -101,15 +124,17 @@ async function run() {
   const inputSelector = 'rich-textarea';
   await page.waitForSelector(inputSelector, { timeout: 0 });
   
-  // We can't type directly into rich-textarea easily with \n, let's use page.evaluate to set the text or use clipboard
-  await page.evaluate((selector, text) => {
-    const el = document.querySelector(selector) as any;
-    if (el) {
-      el.textContent = text;
-      // Dispatch input event so the framework knows it changed
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-  }, inputSelector, prompt);
+  // Focus the input box
+  await page.focus(inputSelector);
+
+  // We use execCommand to insert text natively so that Gemini's React state updates
+  // and the newlines are correctly formatted as <br>/<div> tags in the contenteditable element!
+  await page.evaluate((text) => {
+    document.execCommand('insertText', false, text);
+  }, prompt);
+
+  // Small delay for the UI to register the text and enable the Send button
+  await new Promise(r => setTimeout(r, 500));
 
   // Click send button
   console.log("Submitting prompt...");
