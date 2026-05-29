@@ -346,7 +346,7 @@ async function run() {
 
       console.log(`Waiting for file to be saved in ${kuralDir}...`);
       let downloadedFile = '';
-      for (let i = 0; i < 60; i++) { 
+      for (let i = 0; i < 240; i++) { 
         const files = fs.readdirSync(kuralDir);
         const imageFile = files.find(f => (f.endsWith('.jpg') || f.endsWith('.jpeg') || f.endsWith('.png') || f.endsWith('.webp')) && !f.endsWith('_kural_image.jpg') && !f.endsWith('_kural_image.png') && !f.endsWith('_kural_image.webp'));
         if (imageFile && !imageFile.includes('.crdownload')) {
@@ -354,6 +354,33 @@ async function run() {
           break;
         }
         await new Promise(r => setTimeout(r, 500));
+      }
+
+      if (!downloadedFile) {
+        console.log("Download via click timed out. Using Puppeteer to fetch image directly as a final fallback...");
+        const base64 = await page.evaluate(async () => {
+          const imgs = Array.from(document.querySelectorAll('img'));
+          const largeImg = imgs.find(img => (img.width > 200 && img.height > 200) || (img.style.width && parseInt(img.style.width) > 200));
+          if (!largeImg || !largeImg.src) return null;
+          try {
+             const res = await fetch(largeImg.src);
+             const blob = await res.blob();
+             return await new Promise((resolve) => {
+               const reader = new FileReader();
+               reader.onloadend = () => resolve(reader.result as string);
+               reader.readAsDataURL(blob);
+             });
+          } catch (e) {
+             return null;
+          }
+        });
+        
+        if (base64 && typeof base64 === 'string') {
+          const buffer = Buffer.from(base64.split(',')[1], 'base64');
+          downloadedFile = path.join(kuralDir, 'fallback_kural_image.png');
+          fs.writeFileSync(downloadedFile, buffer);
+          console.log("Successfully fetched image directly via fetch API!");
+        }
       }
 
       if (downloadedFile) {
