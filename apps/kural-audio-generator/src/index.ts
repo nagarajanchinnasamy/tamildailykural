@@ -59,7 +59,7 @@ async function run() {
 
   const wordSplit = `${splitLine(kural.Line1)}\n${splitLine(kural.Line2)}`;
 
-  const prompt = `குறள்:\n\n${kural.Line1}\n${kural.Line2}\n\nWord split:\n\n${wordSplit}\n\nGenerate 15 seconds audio clip for this குறள்`;
+  const prompt = `குறள்:\n\n${kural.Line1}\n${kural.Line2}\n\nWord split:\n\n${wordSplit}\n\nTamil Meaning:\n${kural.tdk}\n\nEnglish Meaning:\n${kural['tdk-explanation']}\n\nGenerate 30 seconds audio clip for this. IMPORTANT INSTRUCTION: You must SING the குறள் verse. However, DO NOT sing the meanings! The Tamil Meaning and English Meaning must be SPOKEN OUT clearly like a normal voice-over narration.`;
 
   console.log("Launching dedicated Chrome instance...");
   let browser;
