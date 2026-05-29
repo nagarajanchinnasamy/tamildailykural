@@ -1,0 +1,34 @@
+{
+  "name": "tamildailykural",
+  "version": "1.0.0",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@remotion/bundler": "^4.0.467",
+    "@remotion/cli": "^4.0.467",
+    "@remotion/renderer": "^4.0.467",
+    "cheerio": "^1.2.0",
+    "dotenv": "^17.4.2",
+    "get-audio-duration": "^4.0.1",
+    "minimist": "^1.2.8",
+    "remotion": "^4.0.467"
+  },
+  "devDependencies": {
+    "@types/minimist": "^1.2.5",
+    "@types/node": "^25.9.1",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "tsx": "^4.22.3",
+    "typescript": "^6.0.3"
+  }
+}
