@@ -14,6 +14,30 @@ const ttsClient = new textToSpeech.TextToSpeechClient({
   keyFilename: path.join(process.cwd(), 'credentials.json'),
 });
 
+function getAudioLoudness(audioPath: string): number | null {
+  try {
+    const { execSync } = require('child_process');
+    const os = require('os');
+    
+    // Find the remotion ffmpeg binary
+    const ffmpegPath = os.platform() === 'win32'
+      ? path.join(process.cwd(), 'node_modules', '@remotion', 'compositor-win32-x64-msvc', 'ffmpeg.exe')
+      : os.platform() === 'darwin'
+        ? path.join(process.cwd(), 'node_modules', '@remotion', 'compositor-darwin-arm64', 'ffmpeg')
+        : path.join(process.cwd(), 'node_modules', '@remotion', 'compositor-linux-x64-gnu', 'ffmpeg');
+        
+    const out = execSync(`"${ffmpegPath}" -i "${audioPath}" -af loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json -f null /dev/null 2>&1`).toString();
+    const match = out.match(/\{\s*"input_i".*?\}/s);
+    if (match) {
+      const data = JSON.parse(match[0]);
+      return parseFloat(data.input_i);
+    }
+  } catch (e) {
+    console.warn(`Failed to measure loudness for ${audioPath}`);
+  }
+  return null;
+}
+
 async function main() {
   const argv = minimist(process.argv.slice(2));
   const startDateStr = argv['start-date'];
@@ -100,10 +124,24 @@ async function main() {
           </prosody>
         </speak>`;
 
+        let gainDb = 6.0;
+        if (fs.existsSync(kuralAudioPath)) {
+          const targetLoudness = getAudioLoudness(kuralAudioPath);
+          if (targetLoudness !== null) {
+            // Google TTS base is approx -25.5 LUFS
+            let calcGain = targetLoudness - (-25.5);
+            gainDb = Math.max(-96.0, Math.min(16.0, calcGain));
+            console.log(`Verse loudness: ${targetLoudness} LUFS. Applying ${gainDb.toFixed(2)} dB gain to TTS.`);
+          }
+        }
+
         const request = {
           input: { ssml },
           voice: { languageCode: 'ta-IN', name: 'ta-IN-Wavenet-B' },
-          audioConfig: { audioEncoding: 'MP3' as const },
+          audioConfig: { 
+            audioEncoding: 'MP3' as const,
+            volumeGainDb: gainDb
+          },
         };
         const [response] = await ttsClient.synthesizeSpeech(request);
         const writeFile = util.promisify(fs.writeFile);
