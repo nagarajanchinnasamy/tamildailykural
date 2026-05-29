@@ -244,7 +244,14 @@
       "transliteration2": "Etuppadhooum Ellaam Mazhai",
       "title": "கெடுப்பதூஉம் எடுப்பதூஉம்",
       "tdk": "பெய்யாமல் விடுத்து உயிர்களின் வாழ்வைக் கெடுக்கக் கூடியதும், பெய்வதன் காரணமாக உயிர்களின் நலிந்த வாழ்வுக்கு வளம் சேர்ப்பதும் மழையே ஆகும்",
-      "tdk-explanation": "Rain by its absence ruins men; and by its existence restores them to fortune"
+      "tdk-explanation": "Rain by its absence ruins men; and by its existence restores them to fortune",
+      "split": [
+        "கெடுப்பதூம்",
+        "கெட்டார்க்குச் சார்வாய்",
+        "மற் றாங்கே",
+        "எடுப்பதூம்",
+        "எல்லாம் மழை"
+      ]
     },
     {
       "Number": 16,

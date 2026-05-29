@@ -72,6 +72,11 @@ async function run() {
     }
   }
 
+  let needsAudioGen = true;
+  if (fs.existsSync(masterAudioOutPath) && !force) {
+    needsAudioGen = false;
+  }
+
   if (!needsAudio && !needsImage) {
     console.log("All audio and image assets already exist. Exiting.");
     return;
@@ -100,37 +105,42 @@ async function run() {
   
   const imagePrompt = `Based on the following Thirukkural meaning, please deeply analyze its context and emotional tone, and generate a beautiful, highly-detailed cinematic image that represents it. You must decide the best artistic style for this (e.g., photorealistic, watercolor, ancient Tamil aesthetic, minimalist, etc.) based on the meaning.\n\nTamil Meaning:\n${kural.tdk}\n\nEnglish Meaning:\n${kural['tdk-explanation']}\n\nCRITICAL RULES:\n1. DO NOT INCLUDE ANY TEXT, WORDS, OR LETTERS INSIDE THE IMAGE UNDER ANY CIRCUMSTANCES.\n2. ASPECT RATIO: You MUST generate the image in a 9:16 vertical portrait aspect ratio (mobile phone orientation). Do not generate a landscape image.\nReply with ONLY the generated image.`;
 
-  console.log("Launching dedicated Chrome instance...");
   let browser;
-  try {
-    const profilePath = path.resolve(__dirname, '../../../.gemini_chrome_profile');
-    browser = await puppeteer.launch({
-      executablePath: '/usr/bin/google-chrome',
-      userDataDir: profilePath,
-      headless: false, 
-      defaultViewport: null,
-      ignoreDefaultArgs: ['--enable-automation'],
-      args: [
-        '--no-sandbox', 
-        '--disable-setuid-sandbox', 
-        '--disable-blink-features=AutomationControlled'
-      ]
+  let page: puppeteer.Page | undefined;
+  
+  if (needsAudioGen || needsImage) {
+    console.log("Launching dedicated Chrome instance...");
+    try {
+      const profilePath = path.resolve(__dirname, '../../../.gemini_chrome_profile');
+      browser = await puppeteer.launch({
+        executablePath: '/usr/bin/google-chrome',
+        userDataDir: profilePath,
+        headless: false, 
+        defaultViewport: null,
+        ignoreDefaultArgs: ['--enable-automation'],
+        args: [
+          '--no-sandbox', 
+          '--disable-setuid-sandbox', 
+          '--disable-blink-features=AutomationControlled'
+        ]
+      });
+    } catch (e) {
+      console.error("Failed to launch Chrome:", e);
+      process.exit(1);
+    }
+
+    const pages = await browser.pages();
+    page = pages.length > 0 ? pages[0] : await browser.newPage();
+    
+    const client = await page.createCDPSession();
+    await client.send('Page.setDownloadBehavior', {
+      behavior: 'allow',
+      downloadPath: kuralDir,
     });
-  } catch (e) {
-    console.error("Failed to launch Chrome:", e);
-    process.exit(1);
   }
 
-  const pages = await browser.pages();
-  const page = pages.length > 0 ? pages[0] : await browser.newPage();
-  
-  const client = await page.createCDPSession();
-  await client.send('Page.setDownloadBehavior', {
-    behavior: 'allow',
-    downloadPath: kuralDir,
-  });
-
   async function generateAudio(prompt: string, outputPath: string, label: string) {
+    if (!page) return;
     console.log(`\n=======================================================`);
     console.log(`GENERATING: ${label}`);
     console.log(`=======================================================\n`);
@@ -253,6 +263,7 @@ async function run() {
   }
 
   async function generateImage(prompt: string, outputPath: string) {
+    if (!page) return;
     console.log(`\n=======================================================`);
     console.log(`GENERATING: Image`);
     console.log(`=======================================================\n`);
@@ -360,7 +371,11 @@ async function run() {
   }
 
   if (needsAudio) {
-    await generateAudio(masterAudioPrompt, masterAudioOutPath, 'Master Audio');
+    if (!fs.existsSync(masterAudioOutPath)) {
+      await generateAudio(masterAudioPrompt, masterAudioOutPath, 'Master Audio');
+    } else {
+      console.log(`\nMaster Audio already exists at ${masterAudioOutPath}. Skipping generation...`);
+    }
     
     // Check if master audio exists
     if (fs.existsSync(masterAudioOutPath)) {
@@ -405,7 +420,9 @@ async function run() {
   console.log("ALL GENERATION COMPLETE!");
   console.log("=======================================================\n");
 
-  await browser.close();
+  if (browser) {
+    await browser.close();
+  }
 }
 
 run().catch(console.error);
