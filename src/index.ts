@@ -14,17 +14,19 @@ const ttsClient = new textToSpeech.TextToSpeechClient({
   keyFilename: path.join(process.cwd(), 'credentials.json'),
 });
 
+function getFfmpegPath(): string {
+  const os = require('os');
+  return os.platform() === 'win32'
+    ? path.join(process.cwd(), 'node_modules', '@remotion', 'compositor-win32-x64-msvc', 'ffmpeg.exe')
+    : os.platform() === 'darwin'
+      ? path.join(process.cwd(), 'node_modules', '@remotion', 'compositor-darwin-arm64', 'ffmpeg')
+      : path.join(process.cwd(), 'node_modules', '@remotion', 'compositor-linux-x64-gnu', 'ffmpeg');
+}
+
 function getAudioLoudness(audioPath: string): number | null {
   try {
     const { execSync } = require('child_process');
-    const os = require('os');
-    
-    // Find the remotion ffmpeg binary
-    const ffmpegPath = os.platform() === 'win32'
-      ? path.join(process.cwd(), 'node_modules', '@remotion', 'compositor-win32-x64-msvc', 'ffmpeg.exe')
-      : os.platform() === 'darwin'
-        ? path.join(process.cwd(), 'node_modules', '@remotion', 'compositor-darwin-arm64', 'ffmpeg')
-        : path.join(process.cwd(), 'node_modules', '@remotion', 'compositor-linux-x64-gnu', 'ffmpeg');
+    const ffmpegPath = getFfmpegPath();
         
     const out = execSync(`"${ffmpegPath}" -i "${audioPath}" -af loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json -f null /dev/null 2>&1`).toString();
     const match = out.match(/\{\s*"input_i".*?\}/s);
@@ -44,6 +46,8 @@ async function main() {
   let days = parseInt(argv['days'], 10);
   const testKural = parseInt(argv['test-kural'], 10);
   const themeArg = argv['theme'];
+  const personaArg = argv['persona'] || 'Leda';
+  const forceRegenerate = argv['force-regenerate'] === true || argv['force-regenerate'] === 'true';
 
   if (!startDateStr || isNaN(days)) {
     console.error("Usage: npm start -- --start-date=YYYY-MM-DD --days=N [--test-kural=N] [--theme=theme_name]");
@@ -96,9 +100,17 @@ async function main() {
       const prefix = kural.Number.toString().padStart(4, '0');
       const kuralAudioPath = path.join(kuralDir, `${prefix}_kural_audio.mp3`);
       const meaningAudioPath = path.join(kuralDir, `${prefix}_meaning_audio.mp3`);
+      const combinedAudioPath = path.join(kuralDir, `${prefix}_kural_meaning_audio.mp3`);
       
-      if (!fs.existsSync(meaningAudioPath) && kural.tdk) {
-        console.log(`TTS meaning audio missing. Generating for Kural ${kural.Number}...`);
+      if (!fs.existsSync(kuralAudioPath) && fs.existsSync(combinedAudioPath)) {
+        console.log(`Auto-splitting first 15 seconds from combined audio for Kural ${kural.Number}...`);
+        const { execSync } = require('child_process');
+        const ffmpegPath = getFfmpegPath();
+        execSync(`"${ffmpegPath}" -y -i "${combinedAudioPath}" -t 15 -c copy "${kuralAudioPath}"`);
+      }
+      
+      if ((!fs.existsSync(meaningAudioPath) || forceRegenerate) && kural.tdk) {
+        console.log(`TTS meaning audio missing or force regenerated. Generating for Kural ${kural.Number}...`);
         
         // Escape special characters for SSML
         const escapeXml = (unsafe: string) => unsafe.replace(/[<>&'"]/g, c => {
@@ -111,42 +123,48 @@ async function main() {
                 default: return c;
             }
         });
+        const taSsml = `<speak><prosody rate="85%">${escapeXml(kural.tdk)}</prosody></speak>`;
+        const enSsml = `<speak><prosody rate="85%">${escapeXml(kural['tdk-explanation'] || kural.explanation)}</prosody></speak>`;
         
-        const ssml = `<speak>
-          <prosody rate="85%">
-            <voice language="ta-IN" name="ta-IN-Wavenet-B">
-              ${escapeXml(kural.tdk)}
-            </voice>
-            <break time="1s"/>
-            <voice language="en-IN" name="en-IN-Wavenet-C">
-              ${escapeXml(kural.explanation)}
-            </voice>
-          </prosody>
-        </speak>`;
-
-        let gainDb = 6.0;
-        if (fs.existsSync(kuralAudioPath)) {
-          const targetLoudness = getAudioLoudness(kuralAudioPath);
-          if (targetLoudness !== null) {
-            // Google TTS base is approx -25.5 LUFS
-            let calcGain = targetLoudness - (-25.5);
-            gainDb = Math.max(-96.0, Math.min(16.0, calcGain));
-            console.log(`Verse loudness: ${targetLoudness} LUFS. Applying ${gainDb.toFixed(2)} dB gain to TTS.`);
-          }
-        }
-
-        const request = {
-          input: { ssml },
-          voice: { languageCode: 'ta-IN', name: 'ta-IN-Wavenet-B' },
-          audioConfig: { 
-            audioEncoding: 'MP3' as const,
-            volumeGainDb: gainDb
-          },
+        const taRequest = {
+          input: { ssml: taSsml },
+          voice: { languageCode: 'ta-IN', name: `ta-IN-Chirp3-HD-${personaArg}` },
+          audioConfig: { audioEncoding: 'MP3' as const },
         };
-        const [response] = await ttsClient.synthesizeSpeech(request);
+        const enRequest = {
+          input: { ssml: enSsml },
+          voice: { languageCode: 'en-IN', name: `en-IN-Chirp3-HD-${personaArg}` },
+          audioConfig: { audioEncoding: 'MP3' as const },
+        };
+        
+        const [taResponse] = await ttsClient.synthesizeSpeech(taRequest);
+        const [enResponse] = await ttsClient.synthesizeSpeech(enRequest);
+        
         const writeFile = util.promisify(fs.writeFile);
-        await writeFile(meaningAudioPath, response.audioContent, 'binary');
-        console.log(`Saved generated TTS audio to ${meaningAudioPath}`);
+        const tmpTa = path.join(kuralDir, 'tmp_ta.mp3');
+        const tmpEn = path.join(kuralDir, 'tmp_en.mp3');
+        
+        await writeFile(tmpTa, taResponse.audioContent, 'binary');
+        await writeFile(tmpEn, enResponse.audioContent, 'binary');
+        
+        let targetLoudness = -16.0;
+        if (fs.existsSync(kuralAudioPath)) {
+          const detected = getAudioLoudness(kuralAudioPath);
+          if (detected !== null) targetLoudness = detected;
+        }
+        
+        const { execSync } = require('child_process');
+        const ffmpegPath = getFfmpegPath();
+        
+        console.log(`Normalizing both languages to ${targetLoudness} LUFS and concatenating...`);
+        const filterComplex = `[0:a]loudnorm=I=${targetLoudness}:TP=-1.5:LRA=11,apad=pad_dur=1[a0];[1:a]loudnorm=I=${targetLoudness}:TP=-1.5:LRA=11[a1];[a0][a1]concat=n=2:v=0:a=1[out]`;
+        
+        execSync(`"${ffmpegPath}" -y -i "${tmpTa}" -i "${tmpEn}" -filter_complex "${filterComplex}" -map "[out]" "${meaningAudioPath}"`);
+        
+        fs.unlinkSync(tmpTa);
+        fs.unlinkSync(tmpEn);
+        
+        console.log(`Saved generated and normalized TTS audio to ${meaningAudioPath}`);
       }
 
       let imagePath = path.join(kuralDir, `${prefix}_kural_image.png`);
@@ -175,7 +193,7 @@ async function main() {
       const meaningProps = {
         title: kural.title,
         meaningTamil: kural.tdk,
-        meaningEnglish: kural.explanation,
+        meaningEnglish: kural['tdk-explanation'] || kural.explanation,
         audioPath: fs.existsSync(meaningAudioPath) ? `${relativeKuralDir}/${prefix}_meaning_audio.mp3` : undefined,
         imagePath: fs.existsSync(imagePath) ? `${relativeKuralDir}/${path.basename(imagePath)}` : undefined
       };
