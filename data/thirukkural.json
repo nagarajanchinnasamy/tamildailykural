@@ -256,7 +256,7 @@
     {
       "Number": 16,
       "Line1": "விசும்பின் துளிவீழின் அல்லால்மற் றாங்கே",
-      "Line2": "பசும்புல் தலைகாண்பு அரிது.",
+      "Line2": "பசும்புல் தலைகாண்பு அரிது",
       "Translation": "No grassy blade its head will rear, If from the cloud no drop appear",
       "mv": "வானத்திலிருந்து மழைத்துளி வீழ்ந்தால் அல்லாமல், உலகத்தில் ஓரறிவுயிராகிய பசும்புல்லின் தலையையும் காண முடியாது",
       "sp": "மேகத்திலிருந்து மழைத்துளி விழாது போனால், பசும்புல்லின் நுனியைக்கூட இங்கே காண்பது அரிதாகிவிடும்",
@@ -267,7 +267,14 @@
       "transliteration2": "Pasumpul Thalaikaanpu Aridhu",
       "title": "விசும்பின் துளிவீழின்",
       "tdk": "விண்ணிலிருந்து மழைத்துளி விழுந்தாலன்றி மண்ணில் பசும்புல் தலை காண்பது அரிதான ஒன்றாகும்",
-      "tdk-explanation": "If no drop falls from the clouds, not even the green blade of grass will be seen"
+      "tdk-explanation": "If no drop falls from the clouds, not even the green blade of grass will be seen",
+      "split": [
+        "விசும்பின் துளி",
+        "வீழின் அல்லால்",
+        "மற் றாங்கே",
+        "பசும்புல் தலை",
+        "காண்பரிது"
+      ]
     },
     {
       "Number": 17,

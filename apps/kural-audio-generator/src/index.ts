@@ -99,9 +99,27 @@ async function run() {
   const finalMood = mood || kural.mood;
   const moodInstruction = finalMood 
     ? `IMPORTANT MOOD INSTRUCTION: You must strictly set the musical style and background music (BGM) to: "${finalMood}". Do not use any other tone.`
-    : `IMPORTANT MOOD INSTRUCTION: Analyze the English and Tamil meanings of this Kural. Set the musical style and background instruments to perfectly match its emotional tone. If the Kural discusses suffering, famine, or gives a stern warning, use a solemn, slow, and contemplative melody. If it discusses virtue or joy, use an uplifting tone.`;
+    : `IMPORTANT MOOD INSTRUCTION: Use minimalistic and neutral musical style and background instruments.`;
 
-  const masterAudioPrompt = `குறள்:\n\n${wordSplit}\n\nTamil Meaning:\n${kural.tdk}\n\nEnglish Meaning:\n${kural['tdk-explanation']}\n\n${moodInstruction}\n\nGenerate a single 30-second continuous audio clip that includes BOTH the verse and the meanings.\n\nCRITICAL INSTRUCTIONS:\n1. First, you must beautifully SING the குறள் verse. Use the line breaks in the குறள் text provided above as a strict guide for phrasing and where to pause/breathe while singing. You MUST complete singing the verse within the first 15 seconds.\n2. Immediately after singing the verse, you MUST narrate the Tamil Meaning text exactly as provided above.\n3. Then, you MUST narrate the English Meaning text exactly as provided above.\n4. DO NOT sing the meanings. The meanings must be SPOKEN clearly like an audiobook narration at a moderate, easy-to-understand pace.`;
+  const masterAudioPrompt = `Generate an audio clip that ONLY takes 15 seconds for singing a verse and 15 seconds of reading out the meanings given below. ONLY 15 seconds for singing the verse is very very important.
+
+Also, take important cognizance of the note on musical style below.
+
+The verse is broken into multiple lines that should be used for phrasing and pausing in the song. Do Not use standard குறள் text. Use only the breaks given below. But  remember, only 15 seconds for the whole verse.
+
+Verse (குறள்):
+
+${wordSplit}
+
+Next, read out the meanings without telling the titles "Tamil Meaning" and "English Meaning". No singing. Only reading out.
+
+Tamil Meaning:
+${kural.tdk}
+
+English Meaning:
+${kural['tdk-explanation']}
+
+${moodInstruction}`;
   
   const imagePrompt = `Based on the following Thirukkural meaning, please deeply analyze its context and emotional tone, and generate a beautiful, highly-detailed cinematic image that represents it. You must decide the best artistic style for this (e.g., photorealistic, watercolor, ancient Tamil aesthetic, minimalist, etc.) based on the meaning.\n\nTamil Meaning:\n${kural.tdk}\n\nEnglish Meaning:\n${kural['tdk-explanation']}\n\nCRITICAL RULES:\n1. DO NOT INCLUDE ANY TEXT, WORDS, OR LETTERS INSIDE THE IMAGE UNDER ANY CIRCUMSTANCES.\n2. ASPECT RATIO: You MUST generate the image in a 9:16 vertical portrait aspect ratio (mobile phone orientation). Do not generate a landscape image.\nReply with ONLY the generated image.`;
 
