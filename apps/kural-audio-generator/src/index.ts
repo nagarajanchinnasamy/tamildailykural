@@ -2,15 +2,18 @@ import puppeteer from 'puppeteer-core';
 import minimist from 'minimist';
 import fs from 'fs';
 import path from 'path';
+import { execSync } from 'child_process';
+import ffmpegPath from 'ffmpeg-static';
 
 async function run() {
   const argv = minimist(process.argv.slice(2));
   const kuralNumber = parseInt(argv['kural'], 10);
   const force = argv['force'] === true || argv['force'] === 'true';
   const mood = argv['mood'];
+  const splitAt = parseInt(argv['split-at'], 10) || 15; // default to 15 seconds
 
   if (isNaN(kuralNumber)) {
-    console.error("Usage: npm start -- --kural=N [--force] [--mood=M]");
+    console.error("Usage: npm start -- --kural=N [--force] [--mood=M] [--split-at=15]");
     process.exit(1);
   }
 
@@ -38,6 +41,7 @@ async function run() {
   const publicDir = path.resolve(__dirname, '../../../public');
   const kuralDir = path.join(publicDir, 'Kurals', adhikaaramStr, kuralStr);
   const filePrefix = kural.Number.toString().padStart(4, '0');
+  const masterAudioOutPath = path.join(kuralDir, `${filePrefix}_master_audio.mp3`);
   const kuralAudioOutPath = path.join(kuralDir, `${filePrefix}_kural_audio.mp3`);
   const meaningAudioOutPath = path.join(kuralDir, `${filePrefix}_meaning_audio.mp3`);
 
@@ -45,16 +49,10 @@ async function run() {
     fs.mkdirSync(kuralDir, { recursive: true });
   }
 
-  let needsVerse = true;
-  if (fs.existsSync(kuralAudioOutPath) && !force) {
-    console.log(`Verse audio already exists at ${kuralAudioOutPath}. Skipping verse generation...`);
-    needsVerse = false;
-  }
-
-  let needsMeaning = true;
-  if (fs.existsSync(meaningAudioOutPath) && !force) {
-    console.log(`Meaning audio already exists at ${meaningAudioOutPath}. Skipping meaning generation...`);
-    needsMeaning = false;
+  let needsAudio = true;
+  if (fs.existsSync(kuralAudioOutPath) && fs.existsSync(meaningAudioOutPath) && !force) {
+    console.log(`Audio clips already exist. Skipping audio generation...`);
+    needsAudio = false;
   }
 
   let needsImage = true;
@@ -74,7 +72,7 @@ async function run() {
     }
   }
 
-  if (!needsVerse && !needsMeaning && !needsImage) {
+  if (!needsAudio && !needsImage) {
     console.log("All audio and image assets already exist. Exiting.");
     return;
   }
@@ -98,8 +96,7 @@ async function run() {
     ? `IMPORTANT MOOD INSTRUCTION: You must strictly set the musical style and background music (BGM) to: "${finalMood}". Do not use any other tone.`
     : `IMPORTANT MOOD INSTRUCTION: Analyze the English and Tamil meanings of this Kural. Set the musical style and background instruments to perfectly match its emotional tone. If the Kural discusses suffering, famine, or gives a stern warning, use a solemn, slow, and contemplative melody. If it discusses virtue or joy, use an uplifting tone.`;
 
-  const versePrompt = `குறள்:\n\n${kural.Line1}\n${kural.Line2}\n\nWord split:\n\n${wordSplit}\n\n${moodInstruction}\n\nGenerate a 15 to 30 seconds beautiful song for this குறள் verse. Focus entirely on making the music match the mood.`;
-  const meaningPrompt = `Tamil Meaning:\n${kural.tdk}\n\nEnglish Meaning:\n${kural['tdk-explanation']}\n\n${moodInstruction}\n\nGenerate a 30 seconds audio clip for this. IMPORTANT: This must be a standard, professional voice-over narration, NOT a song. DO NOT SING. DO NOT USE POETIC OR DRAMATIC NARRATION. Just read the text aloud clearly, neutrally, and naturally, exactly like an educational audiobook narrator. Include a subtle background music (BGM) that matches the mood.`;
+  const masterAudioPrompt = `குறள்:\n\n${kural.Line1}\n${kural.Line2}\n\nWord split:\n\n${wordSplit}\n\nTamil Meaning:\n${kural.tdk}\n\nEnglish Meaning:\n${kural['tdk-explanation']}\n\n${moodInstruction}\n\nGenerate a single 30-second continuous audio clip. First, beautifully sing the குறள் verse. Then, smoothly transition into narrating the Tamil and English meanings clearly and neutrally. The background music MUST be continuous and perfectly transition between the singing and narration parts without stopping.`;
   
   const imagePrompt = `Based on the following Thirukkural meaning, please deeply analyze its context and emotional tone, and generate a beautiful, highly-detailed cinematic image that represents it. You must decide the best artistic style for this (e.g., photorealistic, watercolor, ancient Tamil aesthetic, minimalist, etc.) based on the meaning.\n\nTamil Meaning:\n${kural.tdk}\n\nEnglish Meaning:\n${kural['tdk-explanation']}\n\nCRITICAL RULES:\n1. DO NOT INCLUDE ANY TEXT, WORDS, OR LETTERS INSIDE THE IMAGE UNDER ANY CIRCUMSTANCES.\n2. ASPECT RATIO: You MUST generate the image in a 9:16 vertical portrait aspect ratio (mobile phone orientation). Do not generate a landscape image.\nReply with ONLY the generated image.`;
 
@@ -141,7 +138,7 @@ async function run() {
     // Always navigate fresh to reset the chat state and avoid duplicate download buttons
     await page.goto('https://gemini.google.com/app', { waitUntil: 'networkidle2' });
 
-    if (label === 'Verse') {
+    if (label === 'Master Audio') {
       console.log("WAITING FOR LOGIN:");
       console.log("If you are not logged in, please log in now in the browser.");
       console.log("Once you are fully logged in and on the Gemini chat page,");
@@ -236,7 +233,7 @@ async function run() {
       for (let i = 0; i < 60; i++) { 
         const files = fs.readdirSync(kuralDir);
         // Find a newly created MP3 that doesn't match our specific outpaths yet, or one that was just renamed by chrome
-        const audioFile = files.find(f => f.endsWith('.mp3') && !f.endsWith('_kural_audio.mp3') && !f.endsWith('_meaning_audio.mp3'));
+        const audioFile = files.find(f => f.endsWith('.mp3') && !f.endsWith('_kural_audio.mp3') && !f.endsWith('_meaning_audio.mp3') && !f.endsWith('_master_audio.mp3'));
         if (audioFile && !audioFile.includes('.crdownload')) {
           downloadedFile = path.join(kuralDir, audioFile);
           break;
@@ -362,12 +359,24 @@ async function run() {
     }
   }
 
-  if (needsVerse) {
-    await generateAudio(versePrompt, kuralAudioOutPath, 'Verse');
-  }
-
-  if (needsMeaning) {
-    await generateAudio(meaningPrompt, meaningAudioOutPath, 'Meaning');
+  if (needsAudio) {
+    await generateAudio(masterAudioPrompt, masterAudioOutPath, 'Master Audio');
+    
+    // Check if master audio exists
+    if (fs.existsSync(masterAudioOutPath)) {
+       console.log(`\nSplitting master audio at ${splitAt} seconds using ffmpeg...`);
+       try {
+           // Extract Verse (0 to splitAt)
+           execSync(`"${ffmpegPath}" -y -i "${masterAudioOutPath}" -t ${splitAt} -c copy "${kuralAudioOutPath}"`, { stdio: 'ignore' });
+           // Extract Meaning (splitAt to end)
+           execSync(`"${ffmpegPath}" -y -i "${masterAudioOutPath}" -ss ${splitAt} -c copy "${meaningAudioOutPath}"`, { stdio: 'ignore' });
+           
+           console.log(`Successfully split audio into verse and meaning!`);
+       } catch (err) {
+           console.error("Failed to split audio with ffmpeg. Please make sure ffmpeg is installed on your system.");
+           console.error(err);
+       }
+    }
   }
 
   if (needsImage) {
