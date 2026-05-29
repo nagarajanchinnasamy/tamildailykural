@@ -277,37 +277,61 @@ async function run() {
     console.log("Waiting for generation to complete (this can take up to 3 minutes)...");
     
     try {
-      // Find a download button (could be 'Download all images' or individual download)
-      const btnHandle = await page.waitForFunction(() => {
-        const elements = Array.from(document.querySelectorAll('button, a, div[role="button"], mat-icon'));
-        return elements.find(b => {
-          const text = b.textContent?.toLowerCase() || '';
-          const aria = b.getAttribute('aria-label')?.toLowerCase() || '';
-          const tooltip = b.getAttribute('data-tooltip')?.toLowerCase() || '';
-          return text.includes('download') || aria.includes('download') || tooltip.includes('download');
-        });
-      }, { timeout: 180000 }); 
+      console.log("Waiting for the generated image to appear in the chat...");
+      // Wait for a large image to appear
+      await page.waitForFunction(() => {
+        const imgs = Array.from(document.querySelectorAll('img'));
+        return imgs.some(img => (img.width > 200 && img.height > 200) || (img.style.width && parseInt(img.style.width) > 200));
+      }, { timeout: 180000 });
       
-      console.log(`Image Generation complete! Hovering over media card...`);
-      const element = btnHandle.asElement();
-      if (element) {
-        const containerHandle = await page.evaluateHandle((el) => {
-          let parent = el.parentElement;
-          while (parent && parent.getBoundingClientRect().width < 100) {
-            parent = parent.parentElement;
-          }
-          return parent || el;
-        }, element);
+      console.log(`Image rendered! Searching for the download button...`);
+      
+      // Hover the image to make buttons visible, then find the download button
+      const btnHandle = await page.waitForFunction(() => {
+        const imgs = Array.from(document.querySelectorAll('img'));
+        const largeImg = imgs.find(img => (img.width > 200 && img.height > 200) || (img.style.width && parseInt(img.style.width) > 200));
+        if (!largeImg) return null;
         
-        const containerEl = containerHandle.asElement();
-        if (containerEl) {
-          await containerEl.hover().catch(() => {});
-          await new Promise(r => setTimeout(r, 1000));
+        // Trigger hover
+        largeImg.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+        largeImg.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+
+        // Search for buttons near the image or within the same message block
+        let container = largeImg.parentElement;
+        while (container && container.tagName !== 'BODY') {
+           const buttons = Array.from(container.querySelectorAll('button, a, div[role="button"]'));
+           const dlBtn = buttons.find(b => {
+             const aria = b.getAttribute('aria-label')?.toLowerCase() || '';
+             const tooltip = b.getAttribute('data-tooltip')?.toLowerCase() || '';
+             const text = b.textContent?.toLowerCase() || '';
+             return aria.includes('download') || tooltip.includes('download') || text.includes('download');
+           });
+           if (dlBtn) return dlBtn;
+           container = container.parentElement;
         }
-        
-        console.log("Clicking download button natively...");
-        await element.click().catch(async () => {
-          await page.evaluate((el: HTMLElement) => el.click(), element);
+        return null;
+      }, { timeout: 10000 }).catch(() => null);
+      
+      if (btnHandle) {
+        console.log("Found download button! Clicking natively...");
+        const element = btnHandle.asElement();
+        if (element) {
+          await element.click().catch(async () => {
+            await page.evaluate((el: HTMLElement) => el.click(), element);
+          });
+        }
+      } else {
+        console.log("Could not find download button. Attempting direct src fetch fallback...");
+        // Fallback: Just fetch the image src and trigger download
+        await page.evaluate(() => {
+          const imgs = Array.from(document.querySelectorAll('img'));
+          const largeImg = imgs.find(img => (img.width > 200 && img.height > 200) || (img.style.width && parseInt(img.style.width) > 200));
+          if (largeImg && largeImg.src) {
+             const a = document.createElement('a');
+             a.href = largeImg.src;
+             a.download = 'fallback_kural_image.png';
+             a.click();
+          }
         });
       }
 
@@ -315,7 +339,7 @@ async function run() {
       let downloadedFile = '';
       for (let i = 0; i < 60; i++) { 
         const files = fs.readdirSync(kuralDir);
-        const imageFile = files.find(f => (f.endsWith('.jpg') || f.endsWith('.jpeg') || f.endsWith('.png')) && !f.endsWith('_kural_image.jpg') && !f.endsWith('_kural_image.png'));
+        const imageFile = files.find(f => (f.endsWith('.jpg') || f.endsWith('.jpeg') || f.endsWith('.png') || f.endsWith('.webp')) && !f.endsWith('_kural_image.jpg') && !f.endsWith('_kural_image.png') && !f.endsWith('_kural_image.webp'));
         if (imageFile && !imageFile.includes('.crdownload')) {
           downloadedFile = path.join(kuralDir, imageFile);
           break;
