@@ -2,10 +2,6 @@ import puppeteer from 'puppeteer-core';
 import minimist from 'minimist';
 import fs from 'fs';
 import path from 'path';
-import ffmpeg from 'fluent-ffmpeg';
-import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
-
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
 async function run() {
   const argv = minimist(process.argv.slice(2));
@@ -41,17 +37,15 @@ async function run() {
   
   const publicDir = path.resolve(__dirname, '../../../public');
   const kuralDir = path.join(publicDir, 'Kurals', adhikaaramStr, kuralStr);
-  const combinedAudioOutPath = path.join(kuralDir, `${kuralStr.replace('Kural_', '')}_kural_meaning_audio.mp3`);
-  const verseOutPath = path.join(kuralDir, `${kuralStr.replace('Kural_', '')}_kural_audio.mp3`);
-  const meaningOutPath = path.join(kuralDir, `${kuralStr.replace('Kural_', '')}_meaning_audio.mp3`);
+  const kuralAudioOutPath = path.join(kuralDir, `${kuralStr.replace('Kural_', '')}_kural_audio.mp3`);
 
   if (!fs.existsSync(kuralDir)) {
     fs.mkdirSync(kuralDir, { recursive: true });
   }
 
   let needsGeneration = true;
-  if (fs.existsSync(combinedAudioOutPath) && !force) {
-    console.log(`Audio file already exists at ${combinedAudioOutPath}. Skipping generation...`);
+  if (fs.existsSync(kuralAudioOutPath) && !force) {
+    console.log(`Audio file already exists at ${kuralAudioOutPath}. Skipping generation...`);
     needsGeneration = false;
   }
 
@@ -84,9 +78,9 @@ async function run() {
     const finalMood = mood || kural.mood;
     const moodInstruction = finalMood 
       ? `IMPORTANT MOOD INSTRUCTION: You must strictly set the musical style and background music (BGM) to: "${finalMood}". Do not use any other tone.`
-      : `IMPORTANT MOOD INSTRUCTION: Analyze the English and Tamil meanings of this Kural. Set the musical style and background instruments to perfectly match its emotional tone. If the Kural discusses suffering, famine, or gives a stern warning, use a solemn, slow, and contemplative melody. If it discusses virtue or joy, use an uplifting tone. Ensure the mood of the music always respects the gravity of the meaning.`;
+      : `IMPORTANT MOOD INSTRUCTION: Analyze the English and Tamil meanings of this Kural. Set the musical style and background instruments to perfectly match its emotional tone. If the Kural discusses suffering, famine, or gives a stern warning, use a solemn, slow, and contemplative melody. If it discusses virtue or joy, use an uplifting tone.`;
 
-    const prompt = `குறள்:\n\n${kural.Line1}\n${kural.Line2}\n\nWord split:\n\n${wordSplit}\n\nTamil Meaning:\n${kural.tdk}\n\nEnglish Meaning:\n${kural['tdk-explanation']}\n\n${moodInstruction}\n\nGenerate 30 seconds audio clip for this. IMPORTANT INSTRUCTION: You must SING the குறள் verse. However, DO NOT sing the meanings! The Tamil Meaning and English Meaning must be SPOKEN OUT clearly like a normal voice-over narration.`;
+    const prompt = `குறள்:\n\n${kural.Line1}\n${kural.Line2}\n\nWord split:\n\n${wordSplit}\n\n${moodInstruction}\n\nGenerate a 15 to 30 seconds beautiful song for this குறள் verse. Focus entirely on making the music match the mood.`;
 
     console.log("Launching dedicated Chrome instance...");
     let browser;
@@ -255,12 +249,11 @@ async function run() {
       }
 
       if (downloadedFile) {
-        // Rename the downloaded file to our combined audio format
-        if (downloadedFile !== combinedAudioOutPath) {
-          fs.renameSync(downloadedFile, combinedAudioOutPath);
+        // Rename the downloaded file to our required kural audio format
+        if (downloadedFile !== kuralAudioOutPath) {
+          fs.renameSync(downloadedFile, kuralAudioOutPath);
         }
-        console.log(`Successfully saved combined audio to ${combinedAudioOutPath}`);
-
+        console.log(`Successfully saved Kural song to ${kuralAudioOutPath}`);
       } else {
         console.log("Could not detect the downloaded file automatically. Please check the folder.");
       }
@@ -270,62 +263,6 @@ async function run() {
 
     // Close the entire browser properly so it doesn't leave ghost tabs
     await browser.close();
-  }
-
-  // Ensure we have the combined file before asking to split
-  if (fs.existsSync(combinedAudioOutPath)) {
-    console.log(`\n=======================================================`);
-    console.log(`READY TO SPLIT AUDIO`);
-    console.log(`The combined audio file is available at:\n${combinedAudioOutPath}`);
-    console.log(`Please open this file on your computer and listen to it.`);
-    console.log(`Identify the exact second where the song ends and the speaking begins.`);
-    console.log(`Enter the timestamp in seconds (e.g., 14.5).`);
-    console.log(`=======================================================\n`);
-
-    const splitTimeStr = await new Promise<string>((resolve) => {
-      const rl = require('readline').createInterface({
-        input: process.stdin,
-        output: process.stdout
-      });
-      rl.question('Enter split timestamp (seconds): ', (answer: string) => {
-        rl.close();
-        resolve(answer.trim());
-      });
-    });
-
-    const splitTime = parseFloat(splitTimeStr);
-    if (!isNaN(splitTime) && splitTime > 0) {
-      console.log(`Splitting audio at ${splitTime} seconds...`);
-      
-      // Overwrite the existing split files if they exist (ffmpeg asks for confirmation otherwise)
-      if (fs.existsSync(verseOutPath)) fs.unlinkSync(verseOutPath);
-      if (fs.existsSync(meaningOutPath)) fs.unlinkSync(meaningOutPath);
-
-      // Extract verse (from start to splitTime)
-      await new Promise<void>((resolve, reject) => {
-        ffmpeg(combinedAudioOutPath)
-          .setStartTime(0)
-          .setDuration(splitTime)
-          .output(verseOutPath)
-          .on('end', () => resolve())
-          .on('error', (err: any) => reject(err))
-          .run();
-      });
-      
-      // Extract meaning (from splitTime to end)
-      await new Promise<void>((resolve, reject) => {
-        ffmpeg(combinedAudioOutPath)
-          .setStartTime(splitTime)
-          .output(meaningOutPath)
-          .on('end', () => resolve())
-          .on('error', (err: any) => reject(err))
-          .run();
-      });
-      
-      console.log(`Successfully created:\n  - ${verseOutPath}\n  - ${meaningOutPath}`);
-    } else {
-      console.log("Invalid timestamp provided. Skipping split step.");
-    }
   }
 }
 
