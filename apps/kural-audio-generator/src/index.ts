@@ -61,15 +61,19 @@ async function run() {
 
   const prompt = `குறள்:\n\n${kural.Line1}\n${kural.Line2}\n\nWord split:\n\n${wordSplit}\n\nGenerate 15 seconds audio clip for this குறள்`;
 
-  console.log("Connecting to Chrome on port 9222...");
+  console.log("Launching dedicated Chrome instance...");
   let browser;
   try {
-    browser = await puppeteer.connect({
-      browserURL: 'http://localhost:9222',
-      defaultViewport: null
+    const profilePath = path.resolve(__dirname, '../../../.gemini_chrome_profile');
+    browser = await puppeteer.launch({
+      executablePath: '/usr/bin/google-chrome',
+      userDataDir: profilePath,
+      headless: false, // Must be visible to bypass captcha/login checks easily
+      defaultViewport: null,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
   } catch (e) {
-    console.error("Failed to connect to Chrome. Make sure it is running with --remote-debugging-port=9222");
+    console.error("Failed to launch Chrome:", e);
     process.exit(1);
   }
 
@@ -93,8 +97,9 @@ async function run() {
   console.log("Entering prompt...");
   
   // Wait for the rich text editor (this selector is common for Gemini)
+  // We use timeout: 0 (infinite) so if you need to log in manually on the first run, the script will simply pause and wait for you to finish logging in!
   const inputSelector = 'rich-textarea';
-  await page.waitForSelector(inputSelector);
+  await page.waitForSelector(inputSelector, { timeout: 0 });
   
   // We can't type directly into rich-textarea easily with \n, let's use page.evaluate to set the text or use clipboard
   await page.evaluate((selector, text) => {

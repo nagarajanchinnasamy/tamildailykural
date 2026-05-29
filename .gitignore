@@ -5,3 +5,4 @@ tmp/
 out/
 .DS_Store
 data/Daily_Videos/
+.gemini_chrome_profile/
