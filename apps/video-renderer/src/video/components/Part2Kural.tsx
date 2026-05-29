@@ -58,7 +58,8 @@ export const Part2Kural: React.FC<{
               color: theme.primaryText, 
               margin: '0 0 80px 0', 
               fontWeight: 800,
-              whiteSpace: 'nowrap',
+              whiteSpace: 'normal',
+              lineHeight: 1.3,
               width: '100%',
               textAlign: 'center'
             }}>
@@ -95,10 +96,15 @@ export const Part2Kural: React.FC<{
             <div style={{ 
               width: '100%', 
               flexGrow: 1, 
-              overflow: 'hidden' 
+              overflow: 'hidden',
+              position: 'relative',
+              borderRadius: '20px'
             }}>
               {imagePath ? (
-                <Img src={staticFile(imagePath)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <>
+                  <Img src={staticFile(imagePath)} style={{ position: 'absolute', width: '100%', height: '100%', objectFit: 'cover', filter: 'blur(30px)', opacity: 0.6, transform: 'scale(1.1)' }} />
+                  <Img src={staticFile(imagePath)} style={{ position: 'absolute', width: '100%', height: '100%', objectFit: 'contain' }} />
+                </>
               ) : (
                 <div style={{ width: '100%', height: '100%', backgroundColor: '#e2e8f0' }} />
               )}
