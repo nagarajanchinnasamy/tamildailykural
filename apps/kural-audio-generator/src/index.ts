@@ -56,17 +56,25 @@ async function run() {
     needsMeaning = false;
   }
 
+  let needsImage = true;
+  const imageJpgPath = path.join(kuralDir, `${prefix}_kural_image.jpg`);
+  const imagePngPath = path.join(kuralDir, `${prefix}_kural_image.png`);
+  if ((fs.existsSync(imageJpgPath) || fs.existsSync(imagePngPath)) && !force) {
+    console.log(`Image already exists. Skipping image generation...`);
+    needsImage = false;
+  }
+
   if (force) {
     const existingFiles = fs.readdirSync(kuralDir);
     for (const f of existingFiles) {
-      if (f.endsWith('.mp3') || f.endsWith('.wav')) {
+      if (f.endsWith('.mp3') || f.endsWith('.wav') || f.endsWith('.jpg') || f.endsWith('.png')) {
         fs.unlinkSync(path.join(kuralDir, f));
       }
     }
   }
 
-  if (!needsVerse && !needsMeaning) {
-    console.log("Both verse and meaning audio already exist. Exiting.");
+  if (!needsVerse && !needsMeaning && !needsImage) {
+    console.log("All audio and image assets already exist. Exiting.");
     return;
   }
 
@@ -91,6 +99,8 @@ async function run() {
 
   const versePrompt = `குறள்:\n\n${kural.Line1}\n${kural.Line2}\n\nWord split:\n\n${wordSplit}\n\n${moodInstruction}\n\nGenerate a 15 to 30 seconds beautiful song for this குறள் verse. Focus entirely on making the music match the mood.`;
   const meaningPrompt = `Tamil Meaning:\n${kural.tdk}\n\nEnglish Meaning:\n${kural['tdk-explanation']}\n\n${moodInstruction}\n\nGenerate a 30 seconds audio clip for this. IMPORTANT: This must be a standard, professional voice-over narration, NOT a song. DO NOT SING. DO NOT USE POETIC OR DRAMATIC NARRATION. Just read the text aloud clearly, neutrally, and naturally, exactly like an educational audiobook narrator. Include a subtle background music (BGM) that matches the mood.`;
+  
+  const imagePrompt = `Based on the following Thirukkural meaning, please deeply analyze its context and emotional tone, and generate a beautiful, highly-detailed cinematic image that represents it. You must decide the best artistic style for this (e.g., photorealistic, watercolor, ancient Tamil aesthetic, minimalist, etc.) based on the meaning.\n\nTamil Meaning:\n${kural.tdk}\n\nEnglish Meaning:\n${kural['tdk-explanation']}\n\nCRITICAL RULE: DO NOT INCLUDE ANY TEXT, WORDS, OR LETTERS INSIDE THE IMAGE UNDER ANY CIRCUMSTANCES. Reply with ONLY the generated image.`;
 
   console.log("Launching dedicated Chrome instance...");
   let browser;
@@ -244,12 +254,99 @@ async function run() {
     }
   }
 
+  async function generateImage(prompt: string, outputPath: string) {
+    console.log(`\n=======================================================`);
+    console.log(`GENERATING: Image`);
+    console.log(`=======================================================\n`);
+
+    await page.goto('https://gemini.google.com/app', { waitUntil: 'networkidle2' });
+
+    console.log(`Entering Image prompt...`);
+    const inputSelector = 'rich-textarea';
+    await page.waitForSelector(inputSelector, { timeout: 0 });
+    await page.focus(inputSelector);
+
+    await page.evaluate((text: string) => {
+      document.execCommand('insertText', false, text);
+    }, prompt);
+
+    await new Promise(r => setTimeout(r, 500));
+    console.log("Submitting prompt...");
+    await page.keyboard.press('Enter');
+    console.log("Waiting for generation to complete (this can take up to 3 minutes)...");
+    
+    try {
+      // Find a download button (could be 'Download all images' or individual download)
+      const btnHandle = await page.waitForFunction(() => {
+        const elements = Array.from(document.querySelectorAll('button, a, div[role="button"], mat-icon'));
+        return elements.find(b => {
+          const text = b.textContent?.toLowerCase() || '';
+          const aria = b.getAttribute('aria-label')?.toLowerCase() || '';
+          const tooltip = b.getAttribute('data-tooltip')?.toLowerCase() || '';
+          return text.includes('download') || aria.includes('download') || tooltip.includes('download');
+        });
+      }, { timeout: 180000 }); 
+      
+      console.log(`Image Generation complete! Hovering over media card...`);
+      const element = btnHandle.asElement();
+      if (element) {
+        const containerHandle = await page.evaluateHandle((el) => {
+          let parent = el.parentElement;
+          while (parent && parent.getBoundingClientRect().width < 100) {
+            parent = parent.parentElement;
+          }
+          return parent || el;
+        }, element);
+        
+        const containerEl = containerHandle.asElement();
+        if (containerEl) {
+          await containerEl.hover().catch(() => {});
+          await new Promise(r => setTimeout(r, 1000));
+        }
+        
+        console.log("Clicking download button natively...");
+        await element.click().catch(async () => {
+          await page.evaluate((el: HTMLElement) => el.click(), element);
+        });
+      }
+
+      console.log(`Waiting for file to be saved in ${kuralDir}...`);
+      let downloadedFile = '';
+      for (let i = 0; i < 60; i++) { 
+        const files = fs.readdirSync(kuralDir);
+        const imageFile = files.find(f => (f.endsWith('.jpg') || f.endsWith('.jpeg') || f.endsWith('.png')) && !f.endsWith('_kural_image.jpg') && !f.endsWith('_kural_image.png'));
+        if (imageFile && !imageFile.includes('.crdownload')) {
+          downloadedFile = path.join(kuralDir, imageFile);
+          break;
+        }
+        await new Promise(r => setTimeout(r, 500));
+      }
+
+      if (downloadedFile) {
+        // Output path might be .jpg or .png depending on what Gemini gives us.
+        // We will keep the original extension
+        const ext = path.extname(downloadedFile);
+        const finalPath = outputPath.replace('.jpg', ext); // dynamically set the correct extension
+        fs.renameSync(downloadedFile, finalPath);
+        console.log(`Successfully saved Image to ${finalPath}`);
+      } else {
+        console.log(`Could not detect the downloaded Image file automatically. Please check the folder.`);
+      }
+    } catch (e) {
+      console.error(`Timeout waiting for Image generation. It took longer than 3 minutes or failed.`);
+    }
+  }
+
   if (needsVerse) {
     await generateAudio(versePrompt, kuralAudioOutPath, 'Verse');
   }
 
   if (needsMeaning) {
     await generateAudio(meaningPrompt, meaningAudioOutPath, 'Meaning');
+  }
+
+  if (needsImage) {
+    await generateImage(imagePrompt, path.join(kuralDir, `${prefix}_kural_image.jpg`));
   }
 
   console.log("\n=======================================================");
