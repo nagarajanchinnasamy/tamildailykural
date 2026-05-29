@@ -82,18 +82,16 @@ async function run() {
     process.exit(1);
   }
 
-  console.log("Connected to browser. Opening new tab...");
-  const page = await browser.newPage();
+  console.log("Connected to browser. Configuring download path...");
   
-  // Intercept responses to download the MP3
-  let downloadUrl = '';
-  page.on('response', async (response) => {
-    const url = response.url();
-    // Gemini usually returns audio from specific endpoints, we can listen for media files
-    if (url.includes('.mp3') || url.includes('.wav') || response.headers()['content-type']?.includes('audio')) {
-      console.log(`Intercepted audio response: ${url}`);
-      downloadUrl = url;
-    }
+  const pages = await browser.pages();
+  const page = pages.length > 0 ? pages[0] : await browser.newPage();
+  
+  // Set default download directory to the Kural folder so native downloads go directly there
+  const client = await page.createCDPSession();
+  await client.send('Page.setDownloadBehavior', {
+    behavior: 'allow',
+    downloadPath: kuralDir,
   });
 
   await page.goto('https://gemini.google.com/app', { waitUntil: 'networkidle2' });
@@ -140,42 +138,63 @@ async function run() {
   console.log("Submitting prompt...");
   await page.keyboard.press('Enter');
 
-  console.log("Waiting for generation and download button...");
-  
-  // Wait for the AI to finish. We can wait for the 'Download' button or audio player.
-  // We'll implement a robust wait logic. The user says "I click on the download button on the generated clip UI."
-  // Wait for a generic button that looks like a download button, or wait for the audio tag.
+  console.log("Waiting for generation to complete (this can take up to 3 minutes)...");
   
   try {
-    // Wait for the audio element or download button
+    // Wait for the download button to appear (indicating generation is done)
     await page.waitForFunction(() => {
-      const audioTags = document.querySelectorAll('audio');
-      const downloadButtons = Array.from(document.querySelectorAll('button')).filter(b => b.textContent?.includes('Download') || b.getAttribute('aria-label')?.includes('Download'));
-      return audioTags.length > 0 || downloadButtons.length > 0;
-    }, { timeout: 60000 }); // 60 seconds timeout
+      const buttons = Array.from(document.querySelectorAll('button'));
+      return buttons.some(b => 
+        b.textContent?.toLowerCase().includes('download') || 
+        b.getAttribute('aria-label')?.toLowerCase().includes('download') ||
+        b.getAttribute('data-tooltip')?.toLowerCase().includes('download')
+      );
+    }, { timeout: 180000 }); // 3 minutes timeout
     
-    console.log("Generation complete! Finding download URL...");
+    console.log("Generation complete! Clicking download button...");
     
-    if (downloadUrl) {
-      // Download the audio using fetch inside page
-      console.log(`Downloading from ${downloadUrl}...`);
-      const buffer = await page.evaluate(async (url) => {
-        const res = await fetch(url);
-        const arrayBuffer = await res.arrayBuffer();
-        return Array.from(new Uint8Array(arrayBuffer));
-      }, downloadUrl);
-      
-      fs.writeFileSync(audioOutPath, Buffer.from(buffer));
-      console.log(`Successfully saved audio to ${audioOutPath}`);
+    // Click the download button
+    await page.evaluate(() => {
+      const buttons = Array.from(document.querySelectorAll('button'));
+      const downloadBtn = buttons.find(b => 
+        b.textContent?.toLowerCase().includes('download') || 
+        b.getAttribute('aria-label')?.toLowerCase().includes('download') ||
+        b.getAttribute('data-tooltip')?.toLowerCase().includes('download')
+      );
+      if (downloadBtn) {
+        downloadBtn.click();
+      }
+    });
+
+    console.log(`Waiting for file to be saved in ${kuralDir}...`);
+    
+    // Wait for a file to appear in the directory (Chrome downloads it natively)
+    let downloadedFile = '';
+    for (let i = 0; i < 60; i++) { // wait up to 30 seconds for download to finish
+      const files = fs.readdirSync(kuralDir);
+      const audioFile = files.find(f => f.endsWith('.mp3') || f.endsWith('.wav'));
+      if (audioFile && !audioFile.includes('.crdownload')) {
+        downloadedFile = path.join(kuralDir, audioFile);
+        break;
+      }
+      await new Promise(r => setTimeout(r, 500));
+    }
+
+    if (downloadedFile) {
+      // Rename the downloaded file to our required format if it isn't already
+      if (downloadedFile !== audioOutPath) {
+        fs.renameSync(downloadedFile, audioOutPath);
+      }
+      console.log(`Successfully saved and renamed audio to ${audioOutPath}`);
     } else {
-      console.log("Could not intercept the audio URL automatically. Please download manually.");
+      console.log("Could not detect the downloaded file automatically. Please check the folder.");
     }
   } catch (e) {
-    console.error("Timeout waiting for audio generation.");
+    console.error("Timeout waiting for audio generation. It took longer than 3 minutes or failed.");
   }
 
-  await page.close();
-  browser.disconnect();
+  // Close the entire browser properly so it doesn't leave ghost tabs
+  await browser.close();
 }
 
 run().catch(console.error);
