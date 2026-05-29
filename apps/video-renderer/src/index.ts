@@ -201,6 +201,7 @@ async function main() {
       console.log('Bundling Remotion project...');
       const bundled = await bundle(path.join(process.cwd(), 'src/video/index.ts'), () => undefined, {
         webpackOverride: (config) => config,
+        publicDir: path.join(process.cwd(), '../../public')
       });
 
       console.log('Rendering Final Daily Video...');
