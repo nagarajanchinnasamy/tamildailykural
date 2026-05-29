@@ -74,3 +74,21 @@ npm start -- --start-date="2026-05-29" --days=1 --test-kural=12 --persona=Fenrir
 When executing, the engine checks for the presence of a 30-second `XXXX_kural_meaning_audio.mp3` file. If found without a standalone verse file, it will automatically cut the first 15 seconds. 
 
 It then measures the exact LUFS integrated loudness of that track and applies an identical `loudnorm` filter dynamically via FFmpeg to the generated Google Cloud TTS responses, ensuring uniform volume across all segments before seamlessly stitching them together.
+
+---
+
+## 🤝 Contributing
+
+Contributions, issues, and feature requests are welcome! Feel free to open an issue or submit a pull request if you have ideas to improve the generation pipeline or add new features.
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License** - the most permissive and standard open-source license. You are completely free to use, modify, distribute, and build upon this code, even for commercial purposes.
+
+---
+
+## ©️ Copyright
+
+Copyright (c) 2026 Nagarajan Chinnasamy. All rights reserved.
