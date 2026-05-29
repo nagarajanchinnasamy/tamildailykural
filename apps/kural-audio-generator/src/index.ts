@@ -180,6 +180,36 @@ async function run() {
         console.log("Native click failed, attempting forceful JS click fallback...");
         await page.evaluate((el) => el.click(), element);
       });
+
+      console.log("Waiting for the download menu to open...");
+      // Wait a moment for the dropdown menu to render
+      await new Promise(r => setTimeout(r, 1000));
+      
+      // Click the "Audio only" / "MP3 track" option in the dropdown menu
+      const mp3OptionClicked = await page.evaluate(() => {
+        // Look for any element containing "Audio only" or "MP3 track"
+        // Usually these are spans, divs, or list items
+        const allElements = Array.from(document.querySelectorAll('*'));
+        const audioOption = allElements.find(el => {
+          // Check only elements that have no children (leaf nodes) to avoid clicking giant wrapper divs
+          if (el.children.length > 0) return false;
+          const text = el.textContent?.toLowerCase() || '';
+          return text.includes('audio only') || text.includes('mp3 track');
+        });
+        
+        if (audioOption) {
+          // Click the element or its parent
+          (audioOption.closest('li, div[role="menuitem"], div[role="button"]') || audioOption as HTMLElement).click();
+          return true;
+        }
+        return false;
+      });
+
+      if (mp3OptionClicked) {
+        console.log("Selected 'Audio only (MP3 track)' from the menu!");
+      } else {
+        console.log("Could not find the 'Audio only' menu option. Maybe it started downloading directly?");
+      }
     }
 
     console.log(`Waiting for file to be saved in ${kuralDir}...`);
