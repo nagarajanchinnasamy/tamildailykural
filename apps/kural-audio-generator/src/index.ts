@@ -182,31 +182,32 @@ async function run() {
       });
 
       console.log("Waiting for the download menu to open...");
-      // Wait a moment for the dropdown menu to render
-      await new Promise(r => setTimeout(r, 1000));
       
-      // Click the "Audio only" / "MP3 track" option in the dropdown menu
-      const mp3OptionClicked = await page.evaluate(() => {
-        // Look for any element containing "Audio only" or "MP3 track"
-        // Usually these are spans, divs, or list items
+      // Wait up to 5 seconds for the menu option to appear in the DOM
+      const mp3OptionHandle = await page.waitForFunction(() => {
         const allElements = Array.from(document.querySelectorAll('*'));
-        const audioOption = allElements.find(el => {
-          // Check only elements that have no children (leaf nodes) to avoid clicking giant wrapper divs
-          if (el.children.length > 0) return false;
+        // Find all elements containing the specific text
+        const matches = allElements.filter(el => {
           const text = el.textContent?.toLowerCase() || '';
+          // Avoid matching the <script> or <style> tags, or the entire <body>
+          if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE' || el.tagName === 'BODY' || el.tagName === 'HTML') return false;
           return text.includes('audio only') || text.includes('mp3 track');
         });
         
-        if (audioOption) {
-          // Click the element or its parent
-          (audioOption.closest('li, div[role="menuitem"], div[role="button"]') || audioOption as HTMLElement).click();
-          return true;
+        if (matches.length > 0) {
+          // The last element in the array is typically the deepest nested node (closest to the text)
+          return matches[matches.length - 1];
         }
-        return false;
-      });
+        return null;
+      }, { timeout: 5000 }).catch(() => null);
 
-      if (mp3OptionClicked) {
-        console.log("Selected 'Audio only (MP3 track)' from the menu!");
+      if (mp3OptionHandle) {
+        console.log("Menu found! Clicking 'Audio only (MP3 track)'...");
+        await page.evaluate((el) => {
+          // Click the element itself or its closest clickable container
+          const clickable = el.closest('li, div[role="menuitem"], div[role="button"]') || el;
+          clickable.click();
+        }, mp3OptionHandle);
       } else {
         console.log("Could not find the 'Audio only' menu option. Maybe it started downloading directly?");
       }
