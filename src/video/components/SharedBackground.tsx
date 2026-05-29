@@ -2,7 +2,7 @@ import { AbsoluteFill, Img, staticFile } from 'remotion';
 import React from 'react';
 import { useTheme } from '../theme';
 
-export const SharedBackground: React.FC<{ children: React.ReactNode, hideBorder?: boolean }> = ({ children, hideBorder }) => {
+export const SharedBackground: React.FC<{ children: React.ReactNode, hideBorder?: boolean, watermarkOpacity?: number }> = ({ children, hideBorder, watermarkOpacity = 0.1 }) => {
   const theme = useTheme();
   
   return (
@@ -15,7 +15,7 @@ export const SharedBackground: React.FC<{ children: React.ReactNode, hideBorder?
             width: '100%',
             height: '100%',
             objectFit: 'cover',
-            opacity: 0.1, 
+            opacity: watermarkOpacity, 
             mixBlendMode: 'multiply' 
           }} 
         />

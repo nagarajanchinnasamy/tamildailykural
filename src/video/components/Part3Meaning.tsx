@@ -28,10 +28,17 @@ export const Part3Meaning: React.FC<{
     { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
   );
 
+  const watermarkOpacity = interpolate(
+    frame,
+    [0, 30],
+    [0.25, 0.10], // Resolves back to 0.10
+    { extrapolateRight: 'clamp' }
+  );
+
   return (
-    <AbsoluteFill style={{ overflow: 'hidden', backgroundColor: theme.bgCanvas }}>
-      <div style={{ width: '100%', height: '100%', opacity, transform: `translateY(${translateY}px)` }}>
-        <SharedBackground hideBorder={true}>
+    <AbsoluteFill style={{ overflow: 'hidden', backgroundColor: theme.bgCanvas, opacity }}>
+      <div style={{ width: '100%', height: '100%', transform: `translateY(${translateY}px)` }}>
+        <SharedBackground hideBorder={true} watermarkOpacity={watermarkOpacity}>
           <div style={{ 
             position: 'relative', 
             width: '100%', 

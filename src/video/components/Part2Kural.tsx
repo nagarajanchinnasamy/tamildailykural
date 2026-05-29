@@ -30,10 +30,17 @@ export const Part2Kural: React.FC<{
     { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
   );
 
+  const watermarkOpacity = interpolate(
+    frame,
+    [durationInFrames - 30, durationInFrames],
+    [0.10, 0.25], // Wait, previously it was 0.10 for heavy text pages. Calendar was 0.15.
+    { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
+  );
+
   return (
-    <AbsoluteFill style={{ overflow: 'hidden', backgroundColor: theme.bgCanvas }}>
-      <div style={{ width: '100%', height: '100%', opacity, transform: `translateY(${translateY}px)` }}>
-        <SharedBackground hideBorder={true}>
+    <AbsoluteFill style={{ overflow: 'hidden', backgroundColor: theme.bgCanvas, opacity }}>
+      <div style={{ width: '100%', height: '100%', transform: `translateY(${translateY}px)` }}>
+        <SharedBackground hideBorder={true} watermarkOpacity={watermarkOpacity}>
           <div style={{ 
             position: 'relative', 
             width: '100%', 
