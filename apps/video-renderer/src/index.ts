@@ -54,7 +54,7 @@ async function main() {
     process.exit(1);
   }
 
-  const dataDir = path.join(process.cwd(), 'data');
+  const dataDir = path.join(process.cwd(), '../../data');
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
   }
@@ -89,7 +89,7 @@ async function main() {
 
       const adhikaaramStr = `Adhikaaram_${adhikaaram.toString().padStart(4, '0')}`;
       const kuralStr = `Kural_${kural.Number.toString().padStart(4, '0')}`;
-      const publicDir = path.join(process.cwd(), 'public');
+      const publicDir = path.join(process.cwd(), '../../public');
       const kuralDir = path.join(publicDir, 'Kurals', adhikaaramStr, kuralStr);
       const relativeKuralDir = `Kurals/${adhikaaramStr}/${kuralStr}`;
 

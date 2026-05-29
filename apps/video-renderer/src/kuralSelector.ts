@@ -1,6 +1,6 @@
 // src/kuralSelector.ts
 import { StateManager } from './state';
-import thirukkuralData from '../data/thirukkural.json';
+import thirukkuralData from '../../../data/thirukkural.json';
 
 export interface Kural {
   Number: number;
