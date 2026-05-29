@@ -228,8 +228,18 @@ async function main() {
         console.log(`No specific theme requested or invalid theme. Randomly selected theme: ${randomKey}`);
       }
       
+      const currentTDay = startTDay + i;
+      const tMonthStrPad = String(tMonth).padStart(2, '0');
+      const currentTDayStrPad = String(currentTDay).padStart(2, '0');
+      
+      const tamilYm = `${tYear}-${tMonthStrPad}`;
+      const tamilDateStr = `${tYear}-${tMonthStrPad}-${currentTDayStrPad}`;
+
       const mainProps = {
         dateStr,
+        tamilYear: tYear,
+        tamilMonth: tMonth,
+        tamilDay: currentTDay,
         part2Duration: part2Frames,
         part3Duration: part3Frames,
         kuralProps,
@@ -240,13 +250,6 @@ async function main() {
       const compositions = await getCompositions(bundled, { inputProps: mainProps });
       const mainComp = compositions.find((c) => c.id === 'ThirukkuralShort');
       mainComp!.durationInFrames = totalFrames;
-
-      const currentTDay = startTDay + i;
-      const tMonthStrPad = String(tMonth).padStart(2, '0');
-      const currentTDayStrPad = String(currentTDay).padStart(2, '0');
-      
-      const tamilYm = `${tYear}-${tMonthStrPad}`;
-      const tamilDateStr = `${tYear}-${tMonthStrPad}-${currentTDayStrPad}`;
 
       const dailyVideosDir = path.join(dataDir, 'Daily_Videos', tamilYm);
       if (!fs.existsSync(dailyVideosDir)) {
@@ -259,12 +262,7 @@ async function main() {
         serveUrl: bundled,
         codec: 'h264',
         outputLocation: finalVideoPath,
-        inputProps: {
-          ...mainProps,
-          tamilYear: tYear,
-          tamilMonth: tMonth,
-          tamilDay: currentTDay
-        },
+        inputProps: mainProps,
       });
 
       console.log(`Saved Final Video to ${finalVideoPath}`);
