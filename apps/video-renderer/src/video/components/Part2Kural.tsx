@@ -97,14 +97,10 @@ export const Part2Kural: React.FC<{
               width: '100%', 
               flexGrow: 1, 
               overflow: 'hidden',
-              position: 'relative',
               borderRadius: '20px'
             }}>
               {imagePath ? (
-                <>
-                  <Img src={staticFile(imagePath)} style={{ position: 'absolute', width: '100%', height: '100%', objectFit: 'cover', filter: 'blur(30px)', opacity: 0.6, transform: 'scale(1.1)' }} />
-                  <Img src={staticFile(imagePath)} style={{ position: 'absolute', width: '100%', height: '100%', objectFit: 'contain' }} />
-                </>
+                <Img src={staticFile(imagePath)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
                 <div style={{ width: '100%', height: '100%', backgroundColor: '#e2e8f0' }} />
               )}

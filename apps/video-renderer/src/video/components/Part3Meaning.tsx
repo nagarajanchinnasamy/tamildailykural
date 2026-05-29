@@ -70,14 +70,10 @@ export const Part3Meaning: React.FC<{
               flexGrow: 1, 
               overflow: 'hidden',
               marginBottom: '60px',
-              position: 'relative',
               borderRadius: '20px'
             }}>
               {imagePath ? (
-                <>
-                  <Img src={staticFile(imagePath)} style={{ position: 'absolute', width: '100%', height: '100%', objectFit: 'cover', filter: 'blur(30px)', opacity: 0.6, transform: 'scale(1.1)' }} />
-                  <Img src={staticFile(imagePath)} style={{ position: 'absolute', width: '100%', height: '100%', objectFit: 'contain' }} />
-                </>
+                <Img src={staticFile(imagePath)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
                 <div style={{ width: '100%', height: '100%', backgroundColor: '#e2e8f0' }} />
               )}
