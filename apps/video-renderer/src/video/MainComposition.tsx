@@ -7,12 +7,15 @@ import { Theme, ThemeContext } from './theme';
 
 export const MainComposition: React.FC<{
   dateStr: string;
+  tamilYear: number;
+  tamilMonth: number;
+  tamilDay: number;
   part2Duration: number;
   part3Duration: number;
   kuralProps: any;
   meaningProps: any;
   theme: Theme;
-}> = ({ dateStr, part2Duration, part3Duration, kuralProps, meaningProps, theme }) => {
+}> = ({ dateStr, tamilYear, tamilMonth, tamilDay, part2Duration, part3Duration, kuralProps, meaningProps, theme }) => {
   const { fps } = useVideoConfig();
   
   const part1Duration = 3 * fps; // 3 seconds
@@ -26,7 +29,7 @@ export const MainComposition: React.FC<{
     <ThemeContext.Provider value={theme}>
       <AbsoluteFill style={{ backgroundColor: theme.bgTransition, fontFamily: 'sans-serif' }}>
         <Sequence from={0} durationInFrames={part1Duration}>
-          <Part1Calendar dateStr={dateStr} fadeOutOnly={true} />
+          <Part1Calendar dateStr={dateStr} tamilYear={tamilYear} tamilMonth={tamilMonth} tamilDay={tamilDay} fadeOutOnly={true} />
         </Sequence>
         
         <Sequence from={startPart2} durationInFrames={part2Duration}>
@@ -38,7 +41,7 @@ export const MainComposition: React.FC<{
         </Sequence>
 
         <Sequence from={startPart4} durationInFrames={part4Duration}>
-          <Part1Calendar dateStr={dateStr} fadeInOnly={true} />
+          <Part1Calendar dateStr={dateStr} tamilYear={tamilYear} tamilMonth={tamilMonth} tamilDay={tamilDay} fadeInOnly={true} />
         </Sequence>
       </AbsoluteFill>
     </ThemeContext.Provider>

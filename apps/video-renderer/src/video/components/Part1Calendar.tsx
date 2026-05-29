@@ -37,67 +37,27 @@ const PURE_TAMIL_YEARS = [
   'பேரிகை', 'ஒடுங்கி', 'செம்மை', 'எதிரேற்றம்', 'வளங்கலன்'
 ];
 
-const getTamilDateInfo = (dateObj: Date) => {
-  const gMonth = dateObj.getMonth();
-  const gDate = dateObj.getDate();
-
-  let currentMonthIndex = -1;
-  let prevStartMonth = -1;
-  let prevStartDay = -1;
-
-  for (let i = 0; i < TAMIL_MONTH_STARTS.length; i++) {
-    const tm = TAMIL_MONTH_STARTS[i];
-    if (gMonth === tm.startMonth && gDate >= tm.startDay) {
-      currentMonthIndex = i;
-      prevStartMonth = tm.startMonth;
-      prevStartDay = tm.startDay;
-      break;
-    }
-  }
-
-  if (currentMonthIndex === -1) {
-    const targetStartMonth = gMonth === 0 ? 11 : gMonth - 1;
-    for (let i = 0; i < TAMIL_MONTH_STARTS.length; i++) {
-      if (TAMIL_MONTH_STARTS[i].startMonth === targetStartMonth) {
-        currentMonthIndex = i;
-        prevStartMonth = TAMIL_MONTH_STARTS[i].startMonth;
-        prevStartDay = TAMIL_MONTH_STARTS[i].startDay;
-        break;
-      }
-    }
-  }
-
-  let startYear = dateObj.getFullYear();
-  if (gMonth === 0 && prevStartMonth === 11) {
-    startYear--;
-  }
-
-  const startDateObj = new Date(startYear, prevStartMonth, prevStartDay);
-  const diffTime = Math.abs(dateObj.getTime() - startDateObj.getTime());
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
-
-  return {
-    monthName: TAMIL_MONTH_STARTS[currentMonthIndex].name,
-    season: TAMIL_MONTH_STARTS[currentMonthIndex].season,
-    monthNum: TAMIL_MONTH_STARTS[currentMonthIndex].monthNum,
-    dayNum: diffDays
-  };
-};
-
 const getPureTamilYearName = (gregorianYear: number): string => {
   // 1987 is Prabhava (நற்றோன்றல்) which is index 0
   const index = ((gregorianYear - 1987) % 60 + 60) % 60;
   return PURE_TAMIL_YEARS[index];
 };
 
-export const Part1Calendar: React.FC<{ dateStr: string, fadeInOnly?: boolean, fadeOutOnly?: boolean }> = ({ dateStr, fadeInOnly, fadeOutOnly }) => {
+export const Part1Calendar: React.FC<{ 
+  dateStr: string;
+  tamilYear: number;
+  tamilMonth: number;
+  tamilDay: number;
+  fadeInOnly?: boolean;
+  fadeOutOnly?: boolean 
+}> = ({ dateStr, tamilYear, tamilMonth, tamilDay, fadeInOnly, fadeOutOnly }) => {
   const theme = useTheme();
   const dateObj = new Date(`${dateStr}T00:00:00`);
   const dayOfWeek = TAMIL_DAYS[dateObj.getDay()];
 
-  const tamilDate = getTamilDateInfo(dateObj);
-  const tamilMonth = tamilDate.monthName;
-  const tamilSeason = tamilDate.season;
+  const monthInfo = TAMIL_MONTH_STARTS.find(m => m.monthNum === tamilMonth) || TAMIL_MONTH_STARTS[0];
+  const tamilMonthName = monthInfo.name;
+  const tamilSeason = monthInfo.season;
 
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
@@ -115,11 +75,12 @@ export const Part1Calendar: React.FC<{ dateStr: string, fadeInOnly?: boolean, fa
   );
 
   const gregorianYear = dateObj.getFullYear();
-  const thiruvalluvarYear = gregorianYear + 31;
+  // Using the tamilYear prop instead of calculating it
+  const thiruvalluvarYear = tamilYear;
   const tamilYearName = getPureTamilYearName(gregorianYear);
 
-  const mm = String(tamilDate.monthNum).padStart(2, '0');
-  const dd = String(tamilDate.dayNum).padStart(2, '0');
+  const mm = String(tamilMonth).padStart(2, '0');
+  const dd = String(tamilDay).padStart(2, '0');
   const mmdd = `${mm}-${dd}`;
 
   return (
@@ -146,7 +107,7 @@ export const Part1Calendar: React.FC<{ dateStr: string, fadeInOnly?: boolean, fa
               <div style={{ display: 'flex', justifyContent: 'space-between', width: '85%' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                   <h3 style={{ fontSize: '70px', color: theme.primaryText, margin: 0, fontWeight: 700 }}>திங்கள்</h3>
-                  <h2 style={{ fontSize: '100px', color: theme.highlightText, margin: '10px 0 0 0', fontWeight: 800 }}>{tamilMonth}</h2>
+                  <h2 style={{ fontSize: '100px', color: theme.highlightText, margin: '10px 0 0 0', fontWeight: 800 }}>{tamilMonthName}</h2>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                   <h3 style={{ fontSize: '70px', color: theme.primaryText, margin: 0, fontWeight: 700 }}>பருவம்</h3>

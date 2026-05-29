@@ -40,79 +40,28 @@ function getAudioLoudness(audioPath: string): number | null {
   return null;
 }
 
-const TAMIL_MONTH_STARTS = [
-  { name: 'சுறவம்', season: 'குளிர்', monthNum: 10, startMonth: 0, startDay: 14 },
-  { name: 'கும்பம்', season: 'பனி', monthNum: 11, startMonth: 1, startDay: 13 },
-  { name: 'மீனம்', season: 'நிறைபனி', monthNum: 12, startMonth: 2, startDay: 14 },
-  { name: 'மேழம்', season: 'சுடர்', monthNum: 1, startMonth: 3, startDay: 14 },
-  { name: 'விடை', season: 'அழல்', monthNum: 2, startMonth: 4, startDay: 15 },
-  { name: 'இரட்டை', season: 'வளி', monthNum: 3, startMonth: 5, startDay: 15 },
-  { name: 'கடகம்', season: 'முகில்', monthNum: 4, startMonth: 6, startDay: 16 },
-  { name: 'மடங்கல்', season: 'சாரல்', monthNum: 5, startMonth: 7, startDay: 17 },
-  { name: 'கன்னி', season: 'பெயல்', monthNum: 6, startMonth: 8, startDay: 17 },
-  { name: 'துலை', season: 'தாரை', monthNum: 7, startMonth: 9, startDay: 17 },
-  { name: 'நளி', season: 'பசுமை', monthNum: 8, startMonth: 10, startDay: 16 },
-  { name: 'சிலை', season: 'சீர்மை', monthNum: 9, startMonth: 11, startDay: 16 }
-];
-
-const getTamilDateInfo = (dateObj: Date) => {
-  const gMonth = dateObj.getMonth();
-  const gDate = dateObj.getDate();
-
-  let currentMonthIndex = -1;
-  let prevStartMonth = -1;
-  let prevStartDay = -1;
-
-  for (let i = 0; i < TAMIL_MONTH_STARTS.length; i++) {
-    const tm = TAMIL_MONTH_STARTS[i];
-    if (gMonth === tm.startMonth && gDate >= tm.startDay) {
-      currentMonthIndex = i;
-      prevStartMonth = tm.startMonth;
-      prevStartDay = tm.startDay;
-      break;
-    }
-  }
-
-  if (currentMonthIndex === -1) {
-    const targetStartMonth = gMonth === 0 ? 11 : gMonth - 1;
-    for (let i = 0; i < TAMIL_MONTH_STARTS.length; i++) {
-      if (TAMIL_MONTH_STARTS[i].startMonth === targetStartMonth) {
-        currentMonthIndex = i;
-        prevStartMonth = TAMIL_MONTH_STARTS[i].startMonth;
-        prevStartDay = TAMIL_MONTH_STARTS[i].startDay;
-        break;
-      }
-    }
-  }
-
-  let startYear = dateObj.getFullYear();
-  if (gMonth === 0 && prevStartMonth === 11) {
-    startYear--;
-  }
-
-  const startDateObj = new Date(startYear, prevStartMonth, prevStartDay);
-  const diffTime = Math.abs(dateObj.getTime() - startDateObj.getTime());
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
-
-  return {
-    monthName: TAMIL_MONTH_STARTS[currentMonthIndex].name,
-    season: TAMIL_MONTH_STARTS[currentMonthIndex].season,
-    monthNum: TAMIL_MONTH_STARTS[currentMonthIndex].monthNum,
-    dayNum: diffDays
-  };
-};
-
 async function main() {
   const argv = minimist(process.argv.slice(2));
   const startDateStr = argv['start-date'];
+  const tamilDateArg = argv['tamil-date'];
   let days = parseInt(argv['days'], 10);
   const testKural = parseInt(argv['test-kural'], 10);
   const themeArg = argv['theme'];
   const personaArg = argv['persona'] || 'Leda';
   const forceRegenerate = argv['force-regenerate'] === true || argv['force-regenerate'] === 'true';
 
-  if (!startDateStr || isNaN(days)) {
-    console.error("Usage: npm start -- --start-date=YYYY-MM-DD --days=N [--test-kural=N] [--theme=theme_name]");
+  if (!startDateStr || isNaN(days) || !tamilDateArg) {
+    console.error("Usage: npm start -- --start-date=YYYY-MM-DD --tamil-date=YYYY-MM-DD --days=N [--test-kural=N] [--theme=theme_name]");
+    process.exit(1);
+  }
+
+  const [tYearStr, tMonthStr, tDayStr] = tamilDateArg.split('-');
+  const tYear = parseInt(tYearStr, 10);
+  const tMonth = parseInt(tMonthStr, 10);
+  const startTDay = parseInt(tDayStr, 10);
+
+  if (isNaN(tYear) || isNaN(tMonth) || isNaN(startTDay)) {
+    console.error("Invalid --tamil-date format. Must be YYYY-MM-DD");
     process.exit(1);
   }
 
@@ -292,13 +241,12 @@ async function main() {
       const mainComp = compositions.find((c) => c.id === 'ThirukkuralShort');
       mainComp!.durationInFrames = totalFrames;
 
-      const tDateInfo = getTamilDateInfo(currentDate);
-      const thiruvalluvarYear = currentDate.getFullYear() + 31;
-      const tMonthStr = String(tDateInfo.monthNum).padStart(2, '0');
-      const tDayStr = String(tDateInfo.dayNum).padStart(2, '0');
+      const currentTDay = startTDay + i;
+      const tMonthStrPad = String(tMonth).padStart(2, '0');
+      const currentTDayStrPad = String(currentTDay).padStart(2, '0');
       
-      const tamilYm = `${thiruvalluvarYear}-${tMonthStr}`;
-      const tamilDateStr = `${thiruvalluvarYear}-${tMonthStr}-${tDayStr}`;
+      const tamilYm = `${tYear}-${tMonthStrPad}`;
+      const tamilDateStr = `${tYear}-${tMonthStrPad}-${currentTDayStrPad}`;
 
       const dailyVideosDir = path.join(dataDir, 'Daily_Videos', tamilYm);
       if (!fs.existsSync(dailyVideosDir)) {
@@ -311,7 +259,12 @@ async function main() {
         serveUrl: bundled,
         codec: 'h264',
         outputLocation: finalVideoPath,
-        inputProps: mainProps,
+        inputProps: {
+          ...mainProps,
+          tamilYear: tYear,
+          tamilMonth: tMonth,
+          tamilDay: currentTDay
+        },
       });
 
       console.log(`Saved Final Video to ${finalVideoPath}`);
