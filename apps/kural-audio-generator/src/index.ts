@@ -11,9 +11,10 @@ async function run() {
   const argv = minimist(process.argv.slice(2));
   const kuralNumber = parseInt(argv['kural'], 10);
   const force = argv['force'] === true || argv['force'] === 'true';
+  const mood = argv['mood'];
 
   if (isNaN(kuralNumber)) {
-    console.error("Usage: npm start -- --kural=N [--force]");
+    console.error("Usage: npm start -- --kural=N [--force] [--mood=M]");
     process.exit(1);
   }
 
@@ -78,7 +79,11 @@ async function run() {
 
     const wordSplit = `${splitLine(kural.Line1)}\n${splitLine(kural.Line2)}`;
 
-    const prompt = `குறள்:\n\n${kural.Line1}\n${kural.Line2}\n\nWord split:\n\n${wordSplit}\n\nTamil Meaning:\n${kural.tdk}\n\nEnglish Meaning:\n${kural['tdk-explanation']}\n\nGenerate 30 seconds audio clip for this. IMPORTANT INSTRUCTION: You must SING the குறள் verse. However, DO NOT sing the meanings! The Tamil Meaning and English Meaning must be SPOKEN OUT clearly like a normal voice-over narration.`;
+    const moodInstruction = mood 
+      ? `IMPORTANT MOOD INSTRUCTION: You must strictly set the musical style and background music (BGM) to: "${mood}". Do not use any other tone.`
+      : `IMPORTANT MOOD INSTRUCTION: Analyze the English and Tamil meanings of this Kural. Set the musical style and background instruments to perfectly match its emotional tone. If the Kural discusses suffering, famine, or gives a stern warning, use a solemn, slow, and contemplative melody. If it discusses virtue or joy, use an uplifting tone. Ensure the mood of the music always respects the gravity of the meaning.`;
+
+    const prompt = `குறள்:\n\n${kural.Line1}\n${kural.Line2}\n\nWord split:\n\n${wordSplit}\n\nTamil Meaning:\n${kural.tdk}\n\nEnglish Meaning:\n${kural['tdk-explanation']}\n\n${moodInstruction}\n\nGenerate 30 seconds audio clip for this. IMPORTANT INSTRUCTION: You must SING the குறள் verse. However, DO NOT sing the meanings! The Tamil Meaning and English Meaning must be SPOKEN OUT clearly like a normal voice-over narration.`;
 
     console.log("Launching dedicated Chrome instance...");
     let browser;
