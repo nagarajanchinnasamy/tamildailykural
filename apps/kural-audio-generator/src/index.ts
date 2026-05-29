@@ -142,29 +142,45 @@ async function run() {
   
   try {
     // Wait for the download button to appear (indicating generation is done)
-    await page.waitForFunction(() => {
-      const buttons = Array.from(document.querySelectorAll('button'));
-      return buttons.some(b => 
-        b.textContent?.toLowerCase().includes('download') || 
-        b.getAttribute('aria-label')?.toLowerCase().includes('download') ||
-        b.getAttribute('data-tooltip')?.toLowerCase().includes('download')
-      );
+    const btnHandle = await page.waitForFunction(() => {
+      const elements = Array.from(document.querySelectorAll('button, a, div[role="button"]'));
+      return elements.find(b => {
+        const text = b.textContent?.toLowerCase() || '';
+        const label = b.getAttribute('aria-label')?.toLowerCase() || '';
+        const tooltip = b.getAttribute('data-tooltip')?.toLowerCase() || '';
+        return text.includes('download') || label.includes('download') || tooltip.includes('download');
+      });
     }, { timeout: 180000 }); // 3 minutes timeout
     
-    console.log("Generation complete! Clicking download button...");
+    console.log("Generation complete! Hovering over media card...");
     
-    // Click the download button
-    await page.evaluate(() => {
-      const buttons = Array.from(document.querySelectorAll('button'));
-      const downloadBtn = buttons.find(b => 
-        b.textContent?.toLowerCase().includes('download') || 
-        b.getAttribute('aria-label')?.toLowerCase().includes('download') ||
-        b.getAttribute('data-tooltip')?.toLowerCase().includes('download')
-      );
-      if (downloadBtn) {
-        downloadBtn.click();
+    const element = btnHandle.asElement();
+    if (element) {
+      // Find the closest large container (the image card) to hover over to reveal the button
+      const containerHandle = await page.evaluateHandle((el) => {
+        let parent = el.parentElement;
+        // Traverse up until we find a container that is likely the image card (e.g. > 150px wide)
+        while (parent && parent.getBoundingClientRect().width < 150) {
+          parent = parent.parentElement;
+        }
+        return parent || el;
+      }, element);
+      
+      const containerEl = containerHandle.asElement();
+      if (containerEl) {
+        // Simulate a real mouse hover over the image card to make the buttons appear
+        await containerEl.hover().catch(() => console.log("Could not hover container"));
+        // Wait for CSS animations to reveal the button
+        await new Promise(r => setTimeout(r, 1000));
       }
-    });
+      
+      console.log("Clicking download button natively...");
+      // Simulate a real, trusted mouse click on the button
+      await element.click().catch(async (e) => {
+        console.log("Native click failed, attempting forceful JS click fallback...");
+        await page.evaluate((el) => el.click(), element);
+      });
+    }
 
     console.log(`Waiting for file to be saved in ${kuralDir}...`);
     
