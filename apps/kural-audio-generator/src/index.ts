@@ -105,10 +105,11 @@ async function run() {
   
   const imagePrompt = `Based on the following Thirukkural meaning, please deeply analyze its context and emotional tone, and generate a beautiful, highly-detailed cinematic image that represents it. You must decide the best artistic style for this (e.g., photorealistic, watercolor, ancient Tamil aesthetic, minimalist, etc.) based on the meaning.\n\nTamil Meaning:\n${kural.tdk}\n\nEnglish Meaning:\n${kural['tdk-explanation']}\n\nCRITICAL RULES:\n1. DO NOT INCLUDE ANY TEXT, WORDS, OR LETTERS INSIDE THE IMAGE UNDER ANY CIRCUMSTANCES.\n2. ASPECT RATIO: You MUST generate the image in a 9:16 vertical portrait aspect ratio (mobile phone orientation). Do not generate a landscape image.\nReply with ONLY the generated image.`;
 
-  let browser;
-  let page: puppeteer.Page | undefined;
+  let browser: any;
+  let page: any;
   
-  if (needsAudioGen || needsImage) {
+  async function ensureBrowser() {
+    if (browser) return;
     console.log("Launching dedicated Chrome instance...");
     try {
       const profilePath = path.resolve(__dirname, '../../../.gemini_chrome_profile');
@@ -140,7 +141,7 @@ async function run() {
   }
 
   async function generateAudio(prompt: string, outputPath: string, label: string) {
-    if (!page) return;
+    await ensureBrowser();
     console.log(`\n=======================================================`);
     console.log(`GENERATING: ${label}`);
     console.log(`=======================================================\n`);
@@ -263,7 +264,7 @@ async function run() {
   }
 
   async function generateImage(prompt: string, outputPath: string) {
-    if (!page) return;
+    await ensureBrowser();
     console.log(`\n=======================================================`);
     console.log(`GENERATING: Image`);
     console.log(`=======================================================\n`);
