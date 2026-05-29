@@ -90,7 +90,7 @@ async function run() {
     : `IMPORTANT MOOD INSTRUCTION: Analyze the English and Tamil meanings of this Kural. Set the musical style and background instruments to perfectly match its emotional tone. If the Kural discusses suffering, famine, or gives a stern warning, use a solemn, slow, and contemplative melody. If it discusses virtue or joy, use an uplifting tone.`;
 
   const versePrompt = `குறள்:\n\n${kural.Line1}\n${kural.Line2}\n\nWord split:\n\n${wordSplit}\n\n${moodInstruction}\n\nGenerate a 15 to 30 seconds beautiful song for this குறள் verse. Focus entirely on making the music match the mood.`;
-  const meaningPrompt = `Tamil Meaning:\n${kural.tdk}\n\nEnglish Meaning:\n${kural['tdk-explanation']}\n\n${moodInstruction}\n\nGenerate a 30 second voice-over narration for this. DO NOT SING. Speak the meanings clearly like a storyteller. Include background music (BGM) that perfectly matches the mood.`;
+  const meaningPrompt = `Tamil Meaning:\n${kural.tdk}\n\nEnglish Meaning:\n${kural['tdk-explanation']}\n\n${moodInstruction}\n\nGenerate a 30 seconds audio clip for this. IMPORTANT: This must be a spoken-word voice-over narration, NOT a song. DO NOT SING. The narrator must speak the meanings clearly like a storyteller, accompanied by cinematic background music (BGM) that perfectly matches the mood.`;
 
   console.log("Launching dedicated Chrome instance...");
   let browser;
