@@ -2,6 +2,10 @@ import puppeteer from 'puppeteer-core';
 import minimist from 'minimist';
 import fs from 'fs';
 import path from 'path';
+import ffmpeg from 'fluent-ffmpeg';
+import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
+
+ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
 async function run() {
   const argv = minimist(process.argv.slice(2));
@@ -36,16 +40,19 @@ async function run() {
   
   const publicDir = path.resolve(__dirname, '../../../public');
   const kuralDir = path.join(publicDir, 'Kurals', adhikaaramStr, kuralStr);
-  const audioOutPath = path.join(kuralDir, `${kuralStr.replace('Kural_', '')}_kural_meaning_audio.mp3`);
+  const combinedAudioOutPath = path.join(kuralDir, `${kuralStr.replace('Kural_', '')}_kural_combined_audio.mp3`);
+  const verseOutPath = path.join(kuralDir, `${kuralStr.replace('Kural_', '')}_kural_verse_audio.mp3`);
+  const meaningOutPath = path.join(kuralDir, `${kuralStr.replace('Kural_', '')}_kural_meaning_audio.mp3`);
 
   if (!fs.existsSync(kuralDir)) {
     fs.mkdirSync(kuralDir, { recursive: true });
   }
 
-  if (fs.existsSync(audioOutPath) && !force) {
-    console.log(`Audio file already exists at ${audioOutPath}. Use --force to overwrite.`);
+  if (fs.existsSync(combinedAudioOutPath) && !force) {
+    console.log(`Audio file already exists at ${combinedAudioOutPath}. Use --force to overwrite.`);
     return;
   }
+
 
   // Generate word split
   const splitLine = (line: string) => {
@@ -228,11 +235,64 @@ async function run() {
     }
 
     if (downloadedFile) {
-      // Rename the downloaded file to our required format if it isn't already
-      if (downloadedFile !== audioOutPath) {
-        fs.renameSync(downloadedFile, audioOutPath);
+      // Rename the downloaded file to our combined audio format
+      if (downloadedFile !== combinedAudioOutPath) {
+        fs.renameSync(downloadedFile, combinedAudioOutPath);
       }
-      console.log(`Successfully saved and renamed audio to ${audioOutPath}`);
+      console.log(`Successfully saved combined audio to ${combinedAudioOutPath}`);
+
+      // Close the browser early so the user isn't distracted
+      await browser.close();
+
+      console.log(`\n=======================================================`);
+      console.log(`DOWNLOAD COMPLETE!`);
+      console.log(`The combined audio file is saved at:\n${combinedAudioOutPath}`);
+      console.log(`Please open this file on your computer and listen to it.`);
+      console.log(`Identify the exact second where the song ends and the speaking begins.`);
+      console.log(`Enter the timestamp in seconds (e.g., 14.5).`);
+      console.log(`=======================================================\n`);
+
+      const splitTimeStr = await new Promise<string>((resolve) => {
+        const rl = require('readline').createInterface({
+          input: process.stdin,
+          output: process.stdout
+        });
+        rl.question('Enter split timestamp (seconds): ', (answer: string) => {
+          rl.close();
+          resolve(answer.trim());
+        });
+      });
+
+      const splitTime = parseFloat(splitTimeStr);
+      if (!isNaN(splitTime) && splitTime > 0) {
+        console.log(`Splitting audio at ${splitTime} seconds...`);
+        
+        // Extract verse (from start to splitTime)
+        await new Promise<void>((resolve, reject) => {
+          ffmpeg(combinedAudioOutPath)
+            .setStartTime(0)
+            .setDuration(splitTime)
+            .output(verseOutPath)
+            .on('end', () => resolve())
+            .on('error', (err: any) => reject(err))
+            .run();
+        });
+        
+        // Extract meaning (from splitTime to end)
+        await new Promise<void>((resolve, reject) => {
+          ffmpeg(combinedAudioOutPath)
+            .setStartTime(splitTime)
+            .output(meaningOutPath)
+            .on('end', () => resolve())
+            .on('error', (err: any) => reject(err))
+            .run();
+        });
+        
+        console.log(`Successfully created:\n  - ${verseOutPath}\n  - ${meaningOutPath}`);
+      } else {
+        console.log("Invalid timestamp provided. Skipping split step.");
+      }
+      return; // Ensure we exit early since we already closed browser
     } else {
       console.log("Could not detect the downloaded file automatically. Please check the folder.");
     }
