@@ -67,7 +67,7 @@ async function run() {
   }
 
   if (needsGeneration) {
-    // Generate word split
+    // Generate word split (fallback if kural.split doesn't exist)
     const splitLine = (line: string) => {
       const words = line.trim().split(' ');
       const groups = [];
@@ -77,10 +77,13 @@ async function run() {
       return groups.join('\n');
     };
 
-    const wordSplit = `${splitLine(kural.Line1)}\n${splitLine(kural.Line2)}`;
+    const wordSplit = Array.isArray(kural.split) 
+      ? kural.split.join('\n') 
+      : `${splitLine(kural.Line1)}\n${splitLine(kural.Line2)}`;
 
-    const moodInstruction = mood 
-      ? `IMPORTANT MOOD INSTRUCTION: You must strictly set the musical style and background music (BGM) to: "${mood}". Do not use any other tone.`
+    const finalMood = mood || kural.mood;
+    const moodInstruction = finalMood 
+      ? `IMPORTANT MOOD INSTRUCTION: You must strictly set the musical style and background music (BGM) to: "${finalMood}". Do not use any other tone.`
       : `IMPORTANT MOOD INSTRUCTION: Analyze the English and Tamil meanings of this Kural. Set the musical style and background instruments to perfectly match its emotional tone. If the Kural discusses suffering, famine, or gives a stern warning, use a solemn, slow, and contemplative melody. If it discusses virtue or joy, use an uplifting tone. Ensure the mood of the music always respects the gravity of the meaning.`;
 
     const prompt = `குறள்:\n\n${kural.Line1}\n${kural.Line2}\n\nWord split:\n\n${wordSplit}\n\nTamil Meaning:\n${kural.tdk}\n\nEnglish Meaning:\n${kural['tdk-explanation']}\n\n${moodInstruction}\n\nGenerate 30 seconds audio clip for this. IMPORTANT INSTRUCTION: You must SING the குறள் verse. However, DO NOT sing the meanings! The Tamil Meaning and English Meaning must be SPOKEN OUT clearly like a normal voice-over narration.`;
