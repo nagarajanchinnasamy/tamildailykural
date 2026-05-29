@@ -45,13 +45,13 @@ async function main() {
   const startDateStr = argv['start-date'];
   const tamilDateArg = argv['tamil-date'];
   let days = parseInt(argv['days'], 10);
-  const testKural = parseInt(argv['test-kural'], 10);
+  const testKural = parseInt(argv['kural'], 10);
   const themeArg = argv['theme'];
   const personaArg = argv['persona'] || 'Leda';
   const forceRegenerate = argv['force-regenerate'] === true || argv['force-regenerate'] === 'true';
 
   if (!startDateStr || isNaN(days) || !tamilDateArg) {
-    console.error("Usage: npm start -- --start-date=YYYY-MM-DD --tamil-date=YYYY-MM-DD --days=N [--test-kural=N] [--theme=theme_name]");
+    console.error("Usage: npm start -- --start-date=YYYY-MM-DD --tamil-date=YYYY-MM-DD --days=N [--kural=N] [--theme=theme_name]");
     process.exit(1);
   }
 
