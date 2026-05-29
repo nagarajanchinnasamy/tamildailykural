@@ -53,6 +53,17 @@ async function run() {
     return;
   }
 
+  // If force is true, delete all existing mp3/wav files in the directory to prevent
+  // Chrome from downloading as "file (1).mp3" and confusing our download detection
+  if (force) {
+    const existingFiles = fs.readdirSync(kuralDir);
+    for (const f of existingFiles) {
+      if (f.endsWith('.mp3') || f.endsWith('.wav')) {
+        fs.unlinkSync(path.join(kuralDir, f));
+      }
+    }
+  }
+
 
   // Generate word split
   const splitLine = (line: string) => {
