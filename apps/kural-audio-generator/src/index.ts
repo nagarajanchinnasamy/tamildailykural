@@ -37,8 +37,9 @@ async function run() {
   
   const publicDir = path.resolve(__dirname, '../../../public');
   const kuralDir = path.join(publicDir, 'Kurals', adhikaaramStr, kuralStr);
-  const kuralAudioOutPath = path.join(kuralDir, `${kuralStr.replace('Kural_', '')}_kural_audio.mp3`);
-  const meaningAudioOutPath = path.join(kuralDir, `${kuralStr.replace('Kural_', '')}_meaning_audio.mp3`);
+  const filePrefix = kural.Number.toString().padStart(4, '0');
+  const kuralAudioOutPath = path.join(kuralDir, `${filePrefix}_kural_audio.mp3`);
+  const meaningAudioOutPath = path.join(kuralDir, `${filePrefix}_meaning_audio.mp3`);
 
   if (!fs.existsSync(kuralDir)) {
     fs.mkdirSync(kuralDir, { recursive: true });
@@ -57,8 +58,8 @@ async function run() {
   }
 
   let needsImage = true;
-  const imageJpgPath = path.join(kuralDir, `${prefix}_kural_image.jpg`);
-  const imagePngPath = path.join(kuralDir, `${prefix}_kural_image.png`);
+  const imageJpgPath = path.join(kuralDir, `${filePrefix}_kural_image.jpg`);
+  const imagePngPath = path.join(kuralDir, `${filePrefix}_kural_image.png`);
   if ((fs.existsSync(imageJpgPath) || fs.existsSync(imagePngPath)) && !force) {
     console.log(`Image already exists. Skipping image generation...`);
     needsImage = false;
@@ -346,7 +347,7 @@ async function run() {
   }
 
   if (needsImage) {
-    await generateImage(imagePrompt, path.join(kuralDir, `${prefix}_kural_image.jpg`));
+    await generateImage(imagePrompt, path.join(kuralDir, `${filePrefix}_kural_image.jpg`));
   }
 
   console.log("\n=======================================================");
