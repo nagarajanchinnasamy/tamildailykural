@@ -269,11 +269,9 @@
       "tdk": "விண்ணிலிருந்து மழைத்துளி விழுந்தாலன்றி மண்ணில் பசும்புல் தலை காண்பது அரிதான ஒன்றாகும்",
       "tdk-explanation": "If no drop falls from the clouds, not even the green blade of grass will be seen",
       "split": [
-        "விசும்பின் துளி",
-        "வீழின் அல்லால்",
+        "விசும்பின் துளி வீழின் அல்லால்",
         "மற் றாங்கே",
-        "பசும்புல் தலை",
-        "காண்பரிது"
+        "பசும்புல் தலை காண்பரிது"
       ]
     },
     {
@@ -288,9 +286,14 @@
       "explanation": "Even the wealth of the wide sea will be diminished, if the cloud that has drawn (its waters) up gives them not back again (in rain)",
       "transliteration1": "Netungatalum Thanneermai Kundrum Thatindhezhili",
       "transliteration2": "Thaannalkaa Thaaki Vitin",
-      "title": "நெடுங்கடலும் தன்நீர்மை",
-      "tdk": "ஆவியான கடல்நீர் மேகமாகி அந்தக் கடலில் மழையாகப் பெய்தால்தான் கடல்கூட வற்றாமல் இருக்கும் மனித சமுதாயத்திலிருந்து புகழுடன் உயர்ந்தவர்களும் அந்தச் சமுதாயத்திற்கே பயன்பட்டால்தான் அந்தச் சமுதாயம் வாழும்",
-      "tdk-explanation": "Even the wealth of the wide sea will be diminished, if the cloud that has drawn (its waters) up gives them not back again (in rain)"
+      "title": "நெடுங்கடலும் தன்நீர்மை குன்றும்",
+      "tdk": "மழை பெய்தால் தான் பெருமளவு நீர் கொண்ட கடலும் வற்றாது. எனில்,  இந்த நிலத்தின் நிலை தான் என்ன!?",
+      "tdk-explanation": "Even the vast oceans will dry up if it does not rain. If so, what will become of this land?",
+      "split": [
+        "நெடுங்கடலும் தன்நீர்மை குன்றும்",
+        "தடிந்தெழிலி",
+        "தான் நல்கா தாகி விடின்"
+      ]
     },
     {
       "Number": 18,

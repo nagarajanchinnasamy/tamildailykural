@@ -314,6 +314,16 @@
       "date": "2026-06-01",
       "kuralNumber": 15,
       "adhikaaramNumber": 2
+    },
+    {
+      "date": "2026-06-02",
+      "kuralNumber": 16,
+      "adhikaaramNumber": 2
+    },
+    {
+      "date": "2026-06-03",
+      "kuralNumber": 17,
+      "adhikaaramNumber": 2
     }
   ]
 }

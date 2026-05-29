@@ -313,17 +313,28 @@ ${moodInstruction}`;
       
       console.log(`Image rendered! Searching for the download button...`);
       
-      // Hover the image to make buttons visible, then find the download button
+      // Natively hover the image first
+      const largeImgBox = await page.evaluate(() => {
+        const imgs = Array.from(document.querySelectorAll('img'));
+        const largeImg = imgs.find(img => (img.width > 200 && img.height > 200) || (img.style.width && parseInt(img.style.width) > 200));
+        if (largeImg) {
+           const rect = largeImg.getBoundingClientRect();
+           return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+        }
+        return null;
+      });
+      
+      if (largeImgBox) {
+         await page.mouse.move(largeImgBox.x + largeImgBox.width / 2, largeImgBox.y + largeImgBox.height / 2);
+         await new Promise(r => setTimeout(r, 1000)); // Wait for hover UI to appear
+      }
+      
+      // Find the download button
       const btnHandle = await page.waitForFunction(() => {
         const imgs = Array.from(document.querySelectorAll('img'));
         const largeImg = imgs.find(img => (img.width > 200 && img.height > 200) || (img.style.width && parseInt(img.style.width) > 200));
         if (!largeImg) return null;
         
-        // Trigger hover
-        largeImg.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
-        largeImg.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
-
-        // Search for buttons near the image or within the same message block
         let container = largeImg.parentElement;
         while (container && container.tagName !== 'BODY') {
            const buttons = Array.from(container.querySelectorAll('button, a, div[role="button"]'));
@@ -343,9 +354,21 @@ ${moodInstruction}`;
         console.log("Found download button! Clicking natively...");
         const element = btnHandle.asElement();
         if (element) {
-          await element.click().catch(async () => {
-            await page.evaluate((el: HTMLElement) => el.click(), element);
-          });
+          try {
+            await element.hover();
+            await new Promise(r => setTimeout(r, 500));
+            await element.click();
+          } catch (e) {
+            await page.evaluate((el: HTMLElement) => {
+              el.click();
+              el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+              const btn = el.closest('button, a, [role="button"]') as HTMLElement;
+              if (btn && btn !== el) {
+                btn.click();
+                btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+              }
+            }, element);
+          }
         }
       } else {
         console.log("Could not find download button. Attempting direct src fetch fallback...");
