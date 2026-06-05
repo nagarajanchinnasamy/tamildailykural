@@ -380,11 +380,12 @@
       "explanation": "If rain fall not, penance and alms-deeds will not dwell within this spacious world",
       "transliteration1": "Thaanam Thavamirantum Thangaa Viyanulakam",
       "transliteration2": "Vaanam Vazhangaa Thenin",
-      "title": "தானம் தவம்இரண்டும்",
-      "tdk": "இப்பேருலகில் மழை பொய்த்து விடுமானால் அது, பிறர் பொருட்டுச் செய்யும் தானத்திற்கும், தன்பொருட்டு மேற்கொள்ளும் நோன்புக்கும் தடங்கலாகும்",
-      "tdk-explanation": "If rain fall not, penance and alms-deeds will not dwell within this spacious world",
+      "title": "தானம் தவம் இரண்டும் தங்கா",
+      "tdk": "இப்பேருலகில் மழை பொய்த்து விட்டால் தானமும் தவமும் தடை பட்டுப் போகும்",
+      "tdk-explanation": "If rain fails in this vast world, both charity and penance will come to a halt",
       "split": [
-        "தானம் தவம்இரண்டும் தங்கா வியன்உலகம்",
+        "தானம் தவம் இரண்டும் தங்கா",
+        "வியன்உலகம்",
         "வானம் வழங்கா தெனின்."
       ]
     },
@@ -402,7 +403,7 @@
       "transliteration2": "Vaanindru Amaiyaadhu Ozhukku",
       "title": "நீர்இன்று அமையாது",
       "tdk": "உலகில் மழையே இல்லையென்றால் ஒழுக்கமே கெடக்கூடும் என்ற நிலை இருப்பதால், நீரின் இன்றியமையாமையை உணர்ந்து செயல்பட வேண்டும்",
-      "tdk-explanation": "If it be said that the duties of life cannot be discharged by any person without water, so without rain there cannot be the flowing of water",
+      "tdk-explanation": "Without rain, morality collapses; so we must value water and act responsibly",
       "split": [
         "நீர்இன்று அமையாது உலகெனின் யார்யார்க்கும்",
         "வான்இன்று அமையாது ஒழுக்கு."
@@ -19621,8 +19622,8 @@
       "transliteration1": "Katanenpa Nallavai Ellaam Katanarindhu",
       "transliteration2": "Saandraanmai Merkol Pavarkku",
       "title": "கடன்என்ப நல்லவை",
-      "tdk": "ஆற்ற வேண்டிய கடமைகளை உணர்ந்து, அவற்றைப் பண்பார்ந்த முறையில் நிறைவேற்ற மேற்கொள்ளப்படும் முயற்சிகள் அனைத்தும் நல்ல கடமைகள் என்றே கொள்ளப்படும்",
-      "tdk-explanation": "It is said that those who are conscious of their duty and behave with a perfect goodness will regard as natural all that is good",
+      "tdk": "நல்லவற்றைத்  தனது இயல்பான கடமையாகக் கொண்டு செயல் ஆற்றுபவரே சான்றாண்மை மேற்கொள்பவர் ஆவர்",
+      "tdk-explanation": "Those who perform good deeds as their natural duty are the ones who uphold perfect virtue",
       "split": [
         "கடன்என்ப நல்லவை எல்லாம் கடன்அறிந்து",
         "சான்றாண்மை மேற்கொள் பவர்க்கு."
@@ -19642,10 +19643,11 @@
       "transliteration2": "Ennalaththu Ulladhooum Andru",
       "title": "குணநலம் சான்றோர்",
       "tdk": "நற்பண்பு ஒன்றே சான்றோர்க்கான அழகாகும் வேறு எந்த அழகும் அழகல்ல",
-      "tdk-explanation": "The only delight of the perfect is that of their goodness; all other (sensual) delights are not to be included among any (true) delights",
+      "tdk-explanation": "Virtue alone is the true beauty of the wise; no other beauty is real beauty",
       "split": [
-        "குணநலம் சான்றோர் நலனே பிறநலம்",
-        "எந்நலத்து உள்ளதூஉம் அன்று."
+        "குணநலம் சான்றோர் நலனே",
+        "பிறநலம்",
+        "எந்நலத்து உள்ளதூம் அன்று."
       ]
     },
     {
@@ -19661,8 +19663,8 @@
       "transliteration1": "Anpunaan Oppuravu Kannottam Vaaimaiyotu",
       "transliteration2": "Aindhusaal Oondriya Thoon",
       "title": "அன்புநாண் ஒப்புரவு",
-      "tdk": "அன்பு கொள்ளுதல், பழிபுரிந்திட நாணுதல், உலக ஒழுக்கம் போற்றுதல், இரக்கச் செயலாற்றுதல், வாய்மை கடைப்பிடித்தல் ஆகிய ஐந்தும் சான்றாண்மையைத் தாங்கும் தூண்களாகும்",
-      "tdk-explanation": "Affection, fear (of sin), benevolence, favour and truthfulness; these are the five pillars on which perfect goodness rests",
+      "tdk": "அன்பு, பழி புரிந்திட நாணுதல், ஒழுக்கம், இரக்கம், வாய்மை ஆகிய ஐந்தும் சான்றாண்மையைத் தாங்கும் தூண்களாகும்",
+      "tdk-explanation": "Affection, fear of sin, benevolence, favour, and truthfulness; these are the five pillars on which perfect goodness rests",
       "split": [
         "அன்புநாண் ஒப்புரவு கண்ணோட்டம் வாய்மையொடு",
         "ஐந்துசால் ஊன்றிய தூண்."
@@ -19675,17 +19677,17 @@
       "Translation": "Not to kill is penance pure Not to slander virtue sure",
       "mv": "தவம் ஓர் உயிரையும் கொல்லாத அறத்தை அடிப்படையாகக் கொண்டது, சால்பு பிறருடையத் தீமையை எடுத்துச் சொல்லாத நற்பண்பை அடிப்படையாகக் கொண்டது.",
       "sp": "பிற உயிர்களைக் கொல்லாதிருப்பது தனத்திற்கு அழகு; பிறர் குறைகளைப் பேசாதிருப்பது சான்றாண்மைக்கு அழகு.",
-      "mk": "உயிரைக் கொல்லாத அறத்தை அடிப்படையாகக் கொண்டது நோன்பு பிறர் செய்யும் தீமையைச் சுட்டிக் சொல்லாத பண்பைக் குறிப்பது சால்பு",
+      "mk": "உயிரைக் கொல்லாத அறத்தை அடிப்படையாகக் கொண்டது நோன்பு பிறர் செய்யும் தீமையைச் சுட்டிச் சொல்லாத பண்பைக் குறிப்பது சால்பு",
       "couplet": "The type of 'penitence' is virtuous good that nothing slays;To speak no ill of other men is perfect virtue's praise",
       "explanation": "Penance consists in the goodness that kills not , and perfection in the goodness that tells not others' faults",
       "transliteration1": "Kollaa Nalaththadhu Nonmai Pirardheemai",
       "transliteration2": "Sollaa Nalaththadhu Saalpu",
       "title": "கொல்லா நலத்தது",
-      "tdk": "உயிரைக் கொல்லாத அறத்தை அடிப்படையாகக் கொண்டது நோன்பு பிறர் செய்யும் தீமையைச் சுட்டிக் சொல்லாத பண்பைக் குறிப்பது சால்பு",
-      "tdk-explanation": "Penance consists in the goodness that kills not , and perfection in the goodness that tells not others' faults",
+      "tdk": "உயிரைக் கொல்லாத அறத்தை அடிப்படையாகக் கொண்டது நோன்பு. பிறர் செய்யும் தீமையைச் சுட்டிச் சொல்லாத பண்பைக் குறிப்பது சால்பு",
+      "tdk-explanation": "Fasting is based on the virtue of not killing any life. Nobility refers to the character of not pointing out the mistakes of others",
       "split": [
-        "கொல்லா நலத்தது நோன்மை பிறர்தீமை",
-        "சொல்லா நலத்தது சால்பு."
+        "கொல்லா நலத்தது நோன்மை",
+        "பிறர் தீமை சொல்லா நலத்தது சால்பு."
       ]
     },
     {

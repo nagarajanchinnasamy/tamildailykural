@@ -11,16 +11,16 @@ import util from 'util';
 import { THEMES } from './video/theme';
 
 const ttsClient = new textToSpeech.TextToSpeechClient({
-  keyFilename: path.join(process.cwd(), 'credentials.json'),
+  keyFilename: path.join(process.cwd(), '../../credentials.json'),
 });
 
 function getFfmpegPath(): string {
-  const os = require('os');
-  return os.platform() === 'win32'
-    ? path.join(process.cwd(), 'node_modules', '@remotion', 'compositor-win32-x64-msvc', 'ffmpeg.exe')
-    : os.platform() === 'darwin'
-      ? path.join(process.cwd(), 'node_modules', '@remotion', 'compositor-darwin-arm64', 'ffmpeg')
-      : path.join(process.cwd(), 'node_modules', '@remotion', 'compositor-linux-x64-gnu', 'ffmpeg');
+  try {
+    return require('ffmpeg-static');
+  } catch (err) {
+    console.error("Could not find ffmpeg-static. Falling back to system ffmpeg.", err);
+    return 'ffmpeg';
+  }
 }
 
 function getAudioLoudness(audioPath: string): number | null {
@@ -48,7 +48,10 @@ async function main() {
   const testKural = parseInt(argv['kural'], 10);
   const themeArg = argv['theme'];
   const personaArg = argv['persona'] || 'Leda';
-  const forceRegenerate = argv['force-regenerate'] === true || argv['force-regenerate'] === 'true';
+  let forceRegenerate = argv['force-regenerate'] === true || argv['force-regenerate'] === 'true' || argv['force'] === true || argv['force'] === 'true';
+  let forceAudio = argv['force-audio'] === true || argv['force-audio'] === 'true';
+  let forceImage = argv['force-image'] === true || argv['force-image'] === 'true';
+  let useTts = argv['use-tts'] === true || argv['use-tts'] === 'true';
 
   if (!startDateStr || isNaN(days) || !tamilDateArg) {
     console.error("Usage: npm start -- --start-date=YYYY-MM-DD --tamil-date=YYYY-MM-DD --days=N [--kural=N] [--theme=theme_name]");
@@ -103,84 +106,242 @@ async function main() {
       const publicDir = path.join(process.cwd(), '../../public');
       const kuralDir = path.join(publicDir, 'Kurals', adhikaaramStr, kuralStr);
       const relativeKuralDir = `Kurals/${adhikaaramStr}/${kuralStr}`;
-
-      if (!fs.existsSync(kuralDir)) {
-        throw new Error(`Folder for Kural ${kural.Number} not found locally at ${kuralDir}`);
-      }
-
       const prefix = kural.Number.toString().padStart(4, '0');
       const kuralAudioPath = path.join(kuralDir, `${prefix}_kural_audio.mp3`);
+      const masterAudioPath = path.join(kuralDir, `${prefix}_master_audio.mp3`);
       const meaningAudioPath = path.join(kuralDir, `${prefix}_meaning_audio.mp3`);
       const combinedAudioPath = path.join(kuralDir, `${prefix}_kural_meaning_audio.mp3`);
+
+      const generateTTSIfNeeded = async () => {
+        if ((!fs.existsSync(meaningAudioPath) || useTts) && kural.tdk) {
+          console.log(`TTS meaning audio missing or forced via --use-tts. Generating for Kural ${kural.Number}...`);
+          
+          // Escape special characters for SSML
+          const escapeXml = (unsafe: string) => unsafe.replace(/[<>&'"]/g, c => {
+              switch (c) {
+                  case '<': return '&lt;';
+                  case '>': return '&gt;';
+                  case '&': return '&amp;';
+                  case '\'': return '&apos;';
+                  case '"': return '&quot;';
+                  default: return c;
+              }
+          });
+
+          // Chirp3 provides the "feel" (human-like prosody) but struggles with comma pacing.
+          // By replacing commas with em-dashes, we can trick the neural engine into taking 
+          // a natural, connected pause without doing a hard disjointed breath.
+          const processedTamil = escapeXml(kural.tdk).replace(/,/g, ' —');
+          const processedEnglish = escapeXml(kural['tdk-explanation'] || kural.explanation).replace(/,/g, ' —');
+          const taSsml = `<speak>${processedTamil}</speak>`;
+          const enSsml = `<speak>${processedEnglish}</speak>`;
+
+          const taRequest = {
+            input: { ssml: taSsml },
+            voice: { languageCode: 'ta-IN', name: `ta-IN-Chirp3-HD-${personaArg}` },
+            audioConfig: { audioEncoding: 'MP3' as const, speakingRate: 0.80 },
+          };
+          const enRequest = {
+            input: { ssml: enSsml },
+            voice: { languageCode: 'en-IN', name: `en-IN-Chirp3-HD-${personaArg}` },
+            audioConfig: { audioEncoding: 'MP3' as const, speakingRate: 0.80 },
+          };
+          
+          const [taResponse] = await ttsClient.synthesizeSpeech(taRequest);
+          const [enResponse] = await ttsClient.synthesizeSpeech(enRequest);
+          
+          const writeFile = util.promisify(fs.writeFile);
+          const tmpTa = path.join(kuralDir, 'tmp_ta.mp3');
+          const tmpEn = path.join(kuralDir, 'tmp_en.mp3');
+          
+          await writeFile(tmpTa, taResponse.audioContent, 'binary');
+          await writeFile(tmpEn, enResponse.audioContent, 'binary');
+          
+          let targetLoudness = -16.0;
+          if (fs.existsSync(kuralAudioPath)) {
+            const detected = getAudioLoudness(kuralAudioPath);
+            if (detected !== null) targetLoudness = detected;
+          }
+          
+          const { execSync } = require('child_process');
+          const ffmpegPath = getFfmpegPath();
+          
+          console.log(`Normalizing both languages to ${targetLoudness} LUFS and concatenating...`);
+          const filterComplex = `[0:a]loudnorm=I=${targetLoudness}:TP=-1.5:LRA=11,apad=pad_dur=1[a0];[1:a]loudnorm=I=${targetLoudness}:TP=-1.5:LRA=11[a1];[a0][a1]concat=n=2:v=0:a=1[out]`;
+          
+          execSync(`"${ffmpegPath}" -y -i "${tmpTa}" -i "${tmpEn}" -filter_complex "${filterComplex}" -map "[out]" "${meaningAudioPath}"`);
+          
+          fs.unlinkSync(tmpTa);
+          fs.unlinkSync(tmpEn);
+          
+          console.log(`Saved generated and normalized TTS audio to ${meaningAudioPath}`);
+        }
+      };
+
+      // --- NEW LOGIC: Loop Audio/Image Generator until files exist ---
+      let assetsReady = false;
+      let attempts = 0;
+      const MAX_ATTEMPTS = 5;
+      const { execSync } = require('child_process');
+      const generatorDir = path.join(process.cwd(), '../kural-audio-generator');
       
+      while (!assetsReady) {
+        const possibleExtensions = ['.png', '.jpg', '.jpeg', '.webp'];
+        let imageExists = false;
+        if (fs.existsSync(kuralDir)) {
+          for (const ext of possibleExtensions) {
+            if (fs.existsSync(path.join(kuralDir, `${prefix}_kural_image${ext}`))) {
+              imageExists = true;
+              break;
+            }
+          }
+        }
+        
+        // Either the split kural audio exists, OR the legacy combined audio exists.
+        const audioExists = fs.existsSync(kuralAudioPath) || fs.existsSync(combinedAudioPath);
+        
+        if (!forceAudio && !audioExists && fs.existsSync(masterAudioPath)) {
+          const readline = require('readline');
+          const splitInput = await new Promise<string>((resolve) => {
+            const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+            rl.question(`\nQC Check: Master audio generated. Enter split point in seconds (e.g. 13.5), or type 'r' to reject and regenerate AI audio: `, (answer: string) => {
+              rl.close();
+              resolve(answer.trim().toLowerCase());
+            });
+          });
+
+          if (splitInput === 'r') {
+            console.log("User rejected master audio. Deleting and regenerating...");
+            fs.unlinkSync(masterAudioPath);
+            forceAudio = true;
+            attempts = 0;
+            continue;
+          }
+
+          const splitPoint = parseFloat(splitInput);
+          if (!isNaN(splitPoint) && splitPoint > 0) {
+            console.log(`Splitting master audio at ${splitPoint} seconds using ffmpeg...`);
+            const ffmpegPath = getFfmpegPath();
+            execSync(`"${ffmpegPath}" -y -i "${masterAudioPath}" -t ${splitPoint} -c copy "${kuralAudioPath}"`, { stdio: 'ignore' });
+            execSync(`"${ffmpegPath}" -y -i "${masterAudioPath}" -ss ${splitPoint} -c copy "${meaningAudioPath}"`, { stdio: 'ignore' });
+            console.log(`Successfully split audio!`);
+            continue;
+          } else {
+            console.log("Invalid split point. Please enter a number or 'r'.");
+            continue;
+          }
+        }
+        
+        if (imageExists && audioExists && !forceRegenerate && !forceAudio && !forceImage) {
+          const readline = require('readline');
+
+          if (!useTts && fs.existsSync(meaningAudioPath)) {
+            const ttsChoice = await new Promise<boolean>((resolve) => {
+              const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+              rl.question(`\nQC Check: Is the AI-generated meaning audio acceptable? (If 'n', Google TTS will be used instead) [Y/n]: `, (answer: string) => {
+                rl.close();
+                const ans = answer.trim().toLowerCase();
+                resolve(ans === '' || ans === 'y' || ans === 'yes');
+              });
+            });
+            
+            if (!ttsChoice) {
+              console.log("User rejected AI meaning. Overwriting with Google TTS...");
+              useTts = true;
+            }
+          }
+
+          await generateTTSIfNeeded();
+
+          assetsReady = true;
+          console.log(`\nAll required assets for Kural ${kural.Number} are present and approved!`);
+          break;
+        }
+
+        attempts++;
+        if (attempts > MAX_ATTEMPTS) {
+          throw new Error(`Exceeded maximum retry attempts (${MAX_ATTEMPTS}) for Kural ${kural.Number}. Aborting.`);
+        }
+
+        console.log(`\n=======================================================`);
+        console.log(`Starting Audio & Image Generator for Kural ${kural.Number} (Attempt ${attempts}/${MAX_ATTEMPTS})`);
+        console.log(`Audio Exists: ${audioExists}, Image Exists: ${imageExists}`);
+        console.log(`=======================================================\n`);
+        
+        try {
+          let forceFlag = '';
+          // If this is a retry attempt (attempts > 1), we should forcefully regenerate audio
+          // because the previous attempt clearly failed to produce the split files (e.g. no silence detected).
+          if (attempts > 1) {
+             console.log(`Retry attempt ${attempts}. Forcing audio regeneration to fix broken state...`);
+             forceAudio = true;
+          }
+          if (forceRegenerate) forceFlag += ' --force';
+          if (forceAudio) forceFlag += ' --force-audio';
+          if (forceImage) forceFlag += ' --force-image';
+          execSync(`npm run start -- --kural=${kural.Number}${forceFlag}`, { 
+            cwd: generatorDir, 
+            stdio: 'inherit' 
+          });
+          console.log(`\nAudio/Image Generation process returned.`);
+        } catch (err: any) {
+          console.error(`Failed to run kural-audio-generator for Kural ${kural.Number}.`);
+          if (err.signal === 'SIGINT' || err.status === 130) {
+            console.log("Process interrupted by user (Ctrl+C). Aborting...");
+            process.exit(1);
+          }
+        }
+        
+        forceRegenerate = false; 
+        forceAudio = false;
+        forceImage = false;
+      }
+      
+      // Pause for permission
+      const readline = require('readline');
+      
+      const proceed = await new Promise<boolean>((resolve) => {
+        const rl = readline.createInterface({
+          input: process.stdin,
+          output: process.stdout
+        });
+        rl.question(`\nContinue with video rendering for Kural ${kural.Number}? [Y/n]: `, (answer: string) => {
+          rl.close();
+          const ans = answer.trim().toLowerCase();
+          resolve(ans === '' || ans === 'y' || ans === 'yes');
+        });
+      });
+      
+      if (!proceed) {
+        console.log(`Video rendering aborted by user for day ${dateStr}.`);
+        break; // skip this iteration / stop the process
+      }
+      // --- END NEW LOGIC ---
+
+      if (!fs.existsSync(kuralDir)) {
+        throw new Error(`Folder for Kural ${kural.Number} not found locally at ${kuralDir}. Did the generator fail?`);
+      }
+      
+      // Legacy split check
       if (!fs.existsSync(kuralAudioPath) && fs.existsSync(combinedAudioPath)) {
         console.log(`Auto-splitting first 15 seconds from combined audio for Kural ${kural.Number}...`);
         const { execSync } = require('child_process');
         const ffmpegPath = getFfmpegPath();
         execSync(`"${ffmpegPath}" -y -i "${combinedAudioPath}" -t 15 -c copy "${kuralAudioPath}"`);
       }
-      
-      if ((!fs.existsSync(meaningAudioPath) || forceRegenerate) && kural.tdk) {
-        console.log(`TTS meaning audio missing or force regenerated. Generating for Kural ${kural.Number}...`);
-        
-        // Escape special characters for SSML
-        const escapeXml = (unsafe: string) => unsafe.replace(/[<>&'"]/g, c => {
-            switch (c) {
-                case '<': return '&lt;';
-                case '>': return '&gt;';
-                case '&': return '&amp;';
-                case '\'': return '&apos;';
-                case '"': return '&quot;';
-                default: return c;
-            }
-        });
-        const taSsml = `<speak><prosody rate="85%">${escapeXml(kural.tdk)}</prosody></speak>`;
-        const enSsml = `<speak><prosody rate="85%">${escapeXml(kural['tdk-explanation'] || kural.explanation)}</prosody></speak>`;
-        
-        const taRequest = {
-          input: { ssml: taSsml },
-          voice: { languageCode: 'ta-IN', name: `ta-IN-Chirp3-HD-${personaArg}` },
-          audioConfig: { audioEncoding: 'MP3' as const },
-        };
-        const enRequest = {
-          input: { ssml: enSsml },
-          voice: { languageCode: 'en-IN', name: `en-IN-Chirp3-HD-${personaArg}` },
-          audioConfig: { audioEncoding: 'MP3' as const },
-        };
-        
-        const [taResponse] = await ttsClient.synthesizeSpeech(taRequest);
-        const [enResponse] = await ttsClient.synthesizeSpeech(enRequest);
-        
-        const writeFile = util.promisify(fs.writeFile);
-        const tmpTa = path.join(kuralDir, 'tmp_ta.mp3');
-        const tmpEn = path.join(kuralDir, 'tmp_en.mp3');
-        
-        await writeFile(tmpTa, taResponse.audioContent, 'binary');
-        await writeFile(tmpEn, enResponse.audioContent, 'binary');
-        
-        let targetLoudness = -16.0;
-        if (fs.existsSync(kuralAudioPath)) {
-          const detected = getAudioLoudness(kuralAudioPath);
-          if (detected !== null) targetLoudness = detected;
-        }
-        
-        const { execSync } = require('child_process');
-        const ffmpegPath = getFfmpegPath();
-        
-        console.log(`Normalizing both languages to ${targetLoudness} LUFS and concatenating...`);
-        const filterComplex = `[0:a]loudnorm=I=${targetLoudness}:TP=-1.5:LRA=11,apad=pad_dur=1[a0];[1:a]loudnorm=I=${targetLoudness}:TP=-1.5:LRA=11[a1];[a0][a1]concat=n=2:v=0:a=1[out]`;
-        
-        execSync(`"${ffmpegPath}" -y -i "${tmpTa}" -i "${tmpEn}" -filter_complex "${filterComplex}" -map "[out]" "${meaningAudioPath}"`);
-        
-        fs.unlinkSync(tmpTa);
-        fs.unlinkSync(tmpEn);
-        
-        console.log(`Saved generated and normalized TTS audio to ${meaningAudioPath}`);
-      }
 
-      let imagePath = path.join(kuralDir, `${prefix}_kural_image.png`);
-      if (!fs.existsSync(imagePath)) {
-        imagePath = path.join(kuralDir, `${prefix}_kural_image.jpg`);
+      const possibleExtensions = ['.png', '.jpg', '.jpeg', '.webp'];
+      let imagePath = '';
+      for (const ext of possibleExtensions) {
+        const testPath = path.join(kuralDir, `${prefix}_kural_image${ext}`);
+        if (fs.existsSync(testPath)) {
+          imagePath = testPath;
+          break;
+        }
+      }
+      
+      if (!imagePath) {
+        imagePath = path.join(kuralDir, `${prefix}_kural_image.png`); // Fallback default
       }
 
       let kuralDur = 15;

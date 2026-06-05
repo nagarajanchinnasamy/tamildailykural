@@ -329,6 +329,46 @@
       "date": "2026-06-04",
       "kuralNumber": 18,
       "adhikaaramNumber": 2
+    },
+    {
+      "date": "2026-06-05",
+      "kuralNumber": 19,
+      "adhikaaramNumber": 2
+    },
+    {
+      "date": "2026-06-05",
+      "kuralNumber": 19,
+      "adhikaaramNumber": 2
+    },
+    {
+      "date": "2026-06-06",
+      "kuralNumber": 20,
+      "adhikaaramNumber": 2
+    },
+    {
+      "date": "2026-06-07",
+      "kuralNumber": 981,
+      "adhikaaramNumber": 99
+    },
+    {
+      "date": "2026-06-08",
+      "kuralNumber": 982,
+      "adhikaaramNumber": 99
+    },
+    {
+      "date": "2026-06-09",
+      "kuralNumber": 983,
+      "adhikaaramNumber": 99
+    },
+    {
+      "date": "2026-06-09",
+      "kuralNumber": 983,
+      "adhikaaramNumber": 99
+    },
+    {
+      "date": "2026-06-10",
+      "kuralNumber": 984,
+      "adhikaaramNumber": 99
     }
   ]
 }

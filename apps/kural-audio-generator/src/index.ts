@@ -9,11 +9,13 @@ async function run() {
   const argv = minimist(process.argv.slice(2));
   const kuralNumber = parseInt(argv['kural'], 10);
   const force = argv['force'] === true || argv['force'] === 'true';
+  const forceAudio = argv['force-audio'] === true || argv['force-audio'] === 'true' || force;
+  const forceImage = argv['force-image'] === true || argv['force-image'] === 'true' || force;
   const mood = argv['mood'];
   const splitAt = parseInt(argv['split-at'], 10) || 15; // default to 15 seconds
 
   if (isNaN(kuralNumber)) {
-    console.error("Usage: npm start -- --kural=N [--force] [--mood=M] [--split-at=15]");
+    console.error("Usage: npm start -- --kural=N [--force] [--force-audio] [--force-image] [--mood=M] [--split-at=15]");
     process.exit(1);
   }
 
@@ -50,31 +52,33 @@ async function run() {
   }
 
   let needsAudio = true;
-  if (fs.existsSync(kuralAudioOutPath) && fs.existsSync(meaningAudioOutPath) && !force) {
+  if (fs.existsSync(kuralAudioOutPath) && fs.existsSync(meaningAudioOutPath) && !forceAudio) {
     console.log(`Audio clips already exist. Skipping audio generation...`);
     needsAudio = false;
   }
 
   let needsImage = true;
-  const imageJpgPath = path.join(kuralDir, `${filePrefix}_kural_image.jpg`);
-  const imagePngPath = path.join(kuralDir, `${filePrefix}_kural_image.png`);
-  if ((fs.existsSync(imageJpgPath) || fs.existsSync(imagePngPath)) && !force) {
-    console.log(`Image already exists. Skipping image generation...`);
-    needsImage = false;
-  }
-
-  if (force) {
-    const existingFiles = fs.readdirSync(kuralDir);
-    for (const f of existingFiles) {
-      if (f.endsWith('.mp3') || f.endsWith('.wav') || f.endsWith('.jpg') || f.endsWith('.png')) {
-        fs.unlinkSync(path.join(kuralDir, f));
-      }
+  const possibleImageExts = ['.png', '.jpg', '.jpeg', '.webp'];
+  for (const ext of possibleImageExts) {
+    const imgPath = path.join(kuralDir, `${filePrefix}_kural_image${ext}`);
+    if (fs.existsSync(imgPath) && !forceImage) {
+      console.log(`Image already exists. Skipping image generation...`);
+      needsImage = false;
+      break;
     }
   }
 
-  let needsAudioGen = true;
-  if (fs.existsSync(masterAudioOutPath) && !force) {
-    needsAudioGen = false;
+  if (fs.existsSync(kuralDir)) {
+    const existingFiles = fs.readdirSync(kuralDir);
+    for (const f of existingFiles) {
+      const fullPath = path.join(kuralDir, f);
+      if (forceAudio && (f.endsWith('.mp3') || f.endsWith('.wav'))) {
+        fs.unlinkSync(fullPath);
+      }
+      if (forceImage && (f.endsWith('.jpg') || f.endsWith('.png') || f.endsWith('.jpeg') || f.endsWith('.webp'))) {
+        fs.unlinkSync(fullPath);
+      }
+    }
   }
 
   if (!needsAudio && !needsImage) {
@@ -101,17 +105,19 @@ async function run() {
     ? `IMPORTANT MOOD INSTRUCTION: You must strictly set the musical style and background music (BGM) to: "${finalMood}". Do not use any other tone.`
     : `IMPORTANT MOOD INSTRUCTION: Use minimalistic and neutral musical style and background instruments.`;
 
-  const masterAudioPrompt = `Generate an audio clip that ONLY takes 15 seconds for singing a verse and 15 seconds of reading out the meanings given below. ONLY 15 seconds for singing the verse is very very important.
+  const masterAudioPrompt = `Generate an audio clip for singing a verse followed by reading out its meanings.
 
 Also, take important cognizance of the note on musical style below.
 
-The verse is broken into multiple lines that should be used for phrasing and pausing in the song. Do Not use standard குறள் text. Use only the breaks given below. But  remember, only 15 seconds for the whole verse.
+The verse is broken into multiple lines that should be used for phrasing and pausing in the song. Do Not use standard குறள் text. Use only the breaks given below. No repetition of words, missing words, proper Tamil pronunciation is a must.
 
 Verse (குறள்):
 
 ${wordSplit}
 
-Next, read out the meanings without telling the titles "Tamil Meaning" and "English Meaning". No singing. Only reading out.
+CRITICAL PAUSE INSTRUCTION: Between the singing of the verse and the reading of the meaning, you MUST leave a distinct pause of 1 to 2 seconds of pure silence (no voice and no background music). I reiterate: there MUST be a clear, silent pause of at least 1 second before you start speaking the meaning. No music or voice during this pause.
+
+Next, read out (DO NOT SING. MUST BE IN REGULAR SPOKEN FORM) the meanings without telling the titles "Tamil Meaning" and "English Meaning". No singing. Only reading out.
 
 Tamil Meaning:
 ${kural.tdk}
@@ -257,9 +263,9 @@ ${moodInstruction}`;
         }
       }
 
-      console.log(`Waiting for file to be saved in ${kuralDir}...`);
+      console.log(`Waiting for file to be saved in ${kuralDir}... (If it doesn't download automatically, please manually click download!)`);
       let downloadedFile = '';
-      for (let i = 0; i < 60; i++) { 
+      for (let i = 0; i < 240; i++) { 
         const files = fs.readdirSync(kuralDir);
         // Find a newly created MP3 that doesn't match our specific outpaths yet, or one that was just renamed by chrome
         const audioFile = files.find(f => f.endsWith('.mp3') && !f.endsWith('_kural_audio.mp3') && !f.endsWith('_meaning_audio.mp3') && !f.endsWith('_master_audio.mp3'));
@@ -273,6 +279,11 @@ ${moodInstruction}`;
       if (downloadedFile) {
         fs.renameSync(downloadedFile, outputPath);
         console.log(`Successfully saved ${label} audio to ${outputPath}`);
+        
+          console.log(`\n=======================================================`);
+          console.log(`MASTER AUDIO DOWNLOADED!`);
+          console.log(`Path: ${outputPath}`);
+          console.log(`=======================================================\n`);
       } else {
         console.log(`Could not detect the downloaded ${label} file automatically. Please check the folder.`);
       }
@@ -444,40 +455,6 @@ ${moodInstruction}`;
       await generateAudio(masterAudioPrompt, masterAudioOutPath, 'Master Audio');
     } else {
       console.log(`\nMaster Audio already exists at ${masterAudioOutPath}. Skipping generation...`);
-    }
-    
-    // Check if master audio exists
-    if (fs.existsSync(masterAudioOutPath)) {
-       console.log(`\n=======================================================`);
-       console.log(`MASTER AUDIO DOWNLOADED!`);
-       console.log(`Path: ${masterAudioOutPath}`);
-       console.log(`Please listen to the audio and determine the exact second where the Verse ends and the Meaning begins.`);
-       console.log(`=======================================================\n`);
-       
-       const finalSplitAt = await new Promise<number>((resolve) => {
-         const rl = require('readline').createInterface({
-           input: process.stdin,
-           output: process.stdout
-         });
-         rl.question(`Enter the split point in seconds (e.g., 14.5) [default ${splitAt}]: `, (answer: string) => {
-           rl.close();
-           const parsed = parseFloat(answer);
-           resolve(isNaN(parsed) ? splitAt : parsed);
-         });
-       });
-
-       console.log(`\nSplitting master audio at ${finalSplitAt} seconds using ffmpeg...`);
-       try {
-           // Extract Verse (0 to splitAt)
-           execSync(`"${ffmpegPath}" -y -i "${masterAudioOutPath}" -t ${finalSplitAt} -c copy "${kuralAudioOutPath}"`, { stdio: 'ignore' });
-           // Extract Meaning (splitAt to end)
-           execSync(`"${ffmpegPath}" -y -i "${masterAudioOutPath}" -ss ${finalSplitAt} -c copy "${meaningAudioOutPath}"`, { stdio: 'ignore' });
-           
-           console.log(`Successfully split audio into verse and meaning!`);
-       } catch (err) {
-           console.error("Failed to split audio with ffmpeg. Please make sure ffmpeg is installed on your system.");
-           console.error(err);
-       }
     }
   }
 
