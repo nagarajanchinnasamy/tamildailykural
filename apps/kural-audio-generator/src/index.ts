@@ -103,9 +103,11 @@ async function run() {
   const finalMood = mood || kural.mood;
   const moodInstruction = finalMood 
     ? `IMPORTANT MOOD INSTRUCTION: You must strictly set the musical style and background music (BGM) to: "${finalMood}". Do not use any other tone.`
-    : `IMPORTANT MOOD INSTRUCTION: Use minimalistic and neutral musical style and background instruments.`;
+    : `IMPORTANT MOOD INSTRUCTION: Use a "Tranquillo" (calm and peaceful) or "Ambient" musical style. The BGM must be extremely simple, soft, and meditative. STRICTLY NO percussion, NO mridangam, and NO heavy beats. Use only gentle, sustained legato tones (like a subtle drone, soft strings, or singing bowls).`;
 
   const masterAudioPrompt = `Generate an audio clip for singing a verse followed by reading out its meanings.
+
+TEMPO & STRUCTURE INSTRUCTION: The verse must be sung at a steady, moderate pace. Use a "Moderato" tempo (around 100-115 BPM). CRITICAL TIMING: The singing portion of the verse MUST NOT exceed 15 seconds. The ENTIRE audio clip (including singing, the pause, and reading the meanings) MUST be completed in under 35 seconds. Be incredibly concise: DO NOT add any musical introductions, interludes, or outtros. Start singing the verse immediately. Do not loop or repeat any lines. Keep the entire composition tight and straight to the point.
 
 Also, take important cognizance of the note on musical style below.
 
@@ -127,7 +129,7 @@ ${kural['tdk-explanation']}
 
 ${moodInstruction}`;
   
-  const imagePrompt = `Based on the following Thirukkural meaning, please deeply analyze its context and emotional tone, and generate a beautiful, highly-detailed cinematic image that represents it. You must decide the best artistic style for this (e.g., photorealistic, watercolor, ancient Tamil aesthetic, minimalist, etc.) based on the meaning.\n\nTamil Meaning:\n${kural.tdk}\n\nEnglish Meaning:\n${kural['tdk-explanation']}\n\nCRITICAL RULES:\n1. DO NOT INCLUDE ANY TEXT, WORDS, OR LETTERS INSIDE THE IMAGE UNDER ANY CIRCUMSTANCES.\n2. ASPECT RATIO: You MUST generate the image in a 9:16 vertical portrait aspect ratio (mobile phone orientation). Do not generate a landscape image.\nReply with ONLY the generated image.`;
+  const imagePrompt = `Based on the following Thirukkural meaning, please deeply analyze its context and emotional tone, and generate a beautiful, highly-detailed cinematic image that represents it. You must decide the best artistic style for this (e.g., photorealistic, watercolor, ancient Tamil aesthetic, minimalist, etc.) based on the meaning.\n\nTamil Meaning:\n${kural.tdk}\n\nEnglish Meaning:\n${kural['tdk-explanation']}\n\nCRITICAL RULES:\n1. DO NOT INCLUDE ANY TEXT, WORDS, OR LETTERS INSIDE THE IMAGE UNDER ANY CIRCUMSTANCES.\n2. ASPECT RATIO: You MUST generate the image in a 9:16 vertical portrait aspect ratio (mobile phone orientation). Do not generate a landscape image.\n3. SECULAR AND UNIVERSAL: Thirukkural is a universal, secular text. DO NOT include any specific religious marks (like ash marks, tilaks), religious clothing (like saffron robes), or religious backgrounds (like temples or shrines). Keep the subjects and environments universally relatable and culturally secular.\nReply with ONLY the generated image.`;
 
   let browser: any;
   let page: any;

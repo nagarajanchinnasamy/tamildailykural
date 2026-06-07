@@ -9,6 +9,7 @@ import { getAudioDurationInSeconds } from 'get-audio-duration';
 import textToSpeech from '@google-cloud/text-to-speech';
 import util from 'util';
 import { THEMES } from './video/theme';
+import { execSync } from 'child_process';
 
 const ttsClient = new textToSpeech.TextToSpeechClient({
   keyFilename: path.join(process.cwd(), '../../credentials.json'),
@@ -25,8 +26,8 @@ function getFfmpegPath(): string {
 
 function getAudioLoudness(audioPath: string): number | null {
   try {
-    const { execSync } = require('child_process');
     const ffmpegPath = getFfmpegPath();
+    execSync(`"${ffmpegPath}" -version`, { stdio: 'ignore' });
         
     const out = execSync(`"${ffmpegPath}" -i "${audioPath}" -af loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json -f null /dev/null 2>&1`).toString();
     const match = out.match(/\{\s*"input_i".*?\}/s);
@@ -94,12 +95,28 @@ async function main() {
     console.log(`\n=== Generating for ${dateStr} ===`);
 
     try {
-      const kural = !isNaN(testKural) 
+      let kural = !isNaN(testKural) 
         ? kuralSelector.selectSpecificKural(testKural) 
         : kuralSelector.selectNextKural(stateManager);
       const adhikaaram = KuralSelector.getAdhikaaramNumber(kural.Number);
       
       console.log(`Selected Kural ${kural.Number} (Adhikaaram ${adhikaaram})${!isNaN(testKural) ? ' [TEST MODE]' : ''}`);
+
+      console.log(`\n--- Ensuring Translations for Kural ${kural.Number} ---`);
+      const publisherDir = path.join(process.cwd(), '../youtube-publisher');
+      const dataPath = path.join(process.cwd(), '../../data/thirukkural.json');
+      if (fs.existsSync(publisherDir)) {
+        try {
+          execSync(`npm run translate -- --kural=${kural.Number}`, { cwd: publisherDir, stdio: 'inherit' });
+          // Reload JSON from disk so Remotion sees the newly added regional meanings
+          const updatedRawData = fs.readFileSync(dataPath, 'utf8');
+          const updatedThirukkuralData = JSON.parse(updatedRawData);
+          const updatedKurals = updatedThirukkuralData.kural || updatedThirukkuralData;
+          kural = updatedKurals.find((k: any) => k.Number === kural.Number);
+        } catch (err) {
+          console.warn('Failed to run translation sync script:', err);
+        }
+      }
 
       const adhikaaramStr = `Adhikaaram_${adhikaaram.toString().padStart(4, '0')}`;
       const kuralStr = `Kural_${kural.Number.toString().padStart(4, '0')}`;
@@ -167,7 +184,6 @@ async function main() {
             if (detected !== null) targetLoudness = detected;
           }
           
-          const { execSync } = require('child_process');
           const ffmpegPath = getFfmpegPath();
           
           console.log(`Normalizing both languages to ${targetLoudness} LUFS and concatenating...`);
@@ -186,7 +202,6 @@ async function main() {
       let assetsReady = false;
       let attempts = 0;
       const MAX_ATTEMPTS = 5;
-      const { execSync } = require('child_process');
       const generatorDir = path.join(process.cwd(), '../kural-audio-generator');
       
       if (forceRegenerate || forceAudio) {
@@ -340,10 +355,13 @@ async function main() {
       
       // Legacy split check
       if (!fs.existsSync(kuralAudioPath) && fs.existsSync(combinedAudioPath)) {
-        console.log(`Auto-splitting first 15 seconds from combined audio for Kural ${kural.Number}...`);
-        const { execSync } = require('child_process');
-        const ffmpegPath = getFfmpegPath();
-        execSync(`"${ffmpegPath}" -y -i "${combinedAudioPath}" -t 15 -c copy "${kuralAudioPath}"`);
+        console.log("\nNo split point matched... running split_audio.py logic");
+        try {
+          const ffmpegPath = getFfmpegPath();
+          execSync(`"${ffmpegPath}" -y -i "${combinedAudioPath}" -t 15 -c copy "${kuralAudioPath}"`);
+        } catch (err) {
+          console.warn('Legacy split failed:', err);
+        }
       }
 
       const possibleExtensions = ['.png', '.jpg', '.jpeg', '.webp'];
@@ -444,14 +462,24 @@ async function main() {
 
       console.log(`Saved Remotion Video to ${finalVideoPath}`);
 
+      const ffmpegPath = getFfmpegPath();
+
+      // Extract perfect thumbnail from the clean Remotion output (1s mark avoids any fade-ins)
+      const thumbnailPath = path.join(dailyVideosDir, `${tamilDateStr}_${prefix}_thumbnail.jpg`);
+      console.log('Extracting clean calendar thumbnail...');
+      try {
+        execSync(`"${ffmpegPath}" -y -ss 00:00:01 -i "${finalVideoPath}" -vframes 1 -q:v 2 "${thumbnailPath}"`, { stdio: 'ignore' });
+        console.log(`Saved thumbnail to ${thumbnailPath}`);
+      } catch (err) {
+        console.warn('Failed to extract thumbnail during rendering:', err);
+      }
+
       const introVideoPath = path.resolve(process.cwd(), '../../public/Daily Kural Intro.mp4');
       if (fs.existsSync(introVideoPath)) {
         console.log('Stitching Intro Video...');
         const tempFinalPath = finalVideoPath.replace('.mp4', '_remotion_output.mp4');
         fs.renameSync(finalVideoPath, tempFinalPath);
         
-        const ffmpegPath = getFfmpegPath();
-        const { execSync } = require('child_process');
         
         // Use a highly robust filter_complex that normalizes resolution, aspect ratio, and framerate 
         // before concatenating. This prevents the "video freezes but audio plays" issue caused by mismatched timebases.
@@ -470,6 +498,36 @@ async function main() {
         kuralNumber: kural.Number,
         adhikaaramNumber: adhikaaram
       });
+
+      let shouldPublish = false;
+      if (argv['publish'] === true || argv['publish'] === 'true') {
+        shouldPublish = true;
+      } else {
+        const readline = require('readline');
+        const publishInput = await new Promise<string>((resolve) => {
+          const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+          rl.question(`\nPublish Kural ${kural.Number} to YouTube? (y/N): `, (answer: string) => {
+            rl.close();
+            resolve(answer.trim().toLowerCase());
+          });
+        });
+        if (publishInput === 'y' || publishInput === 'yes') {
+          shouldPublish = true;
+        }
+      }
+
+      if (shouldPublish) {
+        console.log('\n--- Publishing to YouTube ---');
+        const publisherDir = path.join(process.cwd(), '../youtube-publisher');
+        if (fs.existsSync(publisherDir)) {
+          // Using stdio: inherit to allow the user to see the OAuth prompt if needed
+          execSync(`npm start -- --date="${dateStr}" --tamil-date="${tamilDateArg}" --kural=${kural.Number}`, { cwd: publisherDir, stdio: 'inherit' });
+        } else {
+          console.error(`Publisher directory not found at ${publisherDir}`);
+        }
+      } else {
+        console.log('\nSkipping publishing.');
+      }
 
     } catch (err) {
       console.error(`Error on day ${dateStr}:`, err);

@@ -6,3 +6,9 @@ out/
 .DS_Store
 data/Daily_Videos/
 .gemini_chrome_profile/
+
+# Secrets
+client_secrets.json
+data/youtube_token.json
+
+
