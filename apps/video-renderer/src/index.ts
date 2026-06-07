@@ -49,8 +49,8 @@ async function main() {
   const themeArg = argv['theme'];
   const personaArg = argv['persona'] || 'Leda';
   let forceRegenerate = argv['force-regenerate'] === true || argv['force-regenerate'] === 'true' || argv['force'] === true || argv['force'] === 'true';
-  let forceAudio = argv['force-audio'] === true || argv['force-audio'] === 'true';
-  let forceImage = argv['force-image'] === true || argv['force-image'] === 'true';
+  let forceAudio = argv['force-audio'] === true || argv['force-audio'] === 'true' || forceRegenerate;
+  let forceImage = argv['force-image'] === true || argv['force-image'] === 'true' || forceRegenerate;
   let useTts = argv['use-tts'] === true || argv['use-tts'] === 'true';
 
   if (!startDateStr || isNaN(days) || !tamilDateArg) {
@@ -112,9 +112,12 @@ async function main() {
       const meaningAudioPath = path.join(kuralDir, `${prefix}_meaning_audio.mp3`);
       const combinedAudioPath = path.join(kuralDir, `${prefix}_kural_meaning_audio.mp3`);
 
-      const generateTTSIfNeeded = async () => {
-        if ((!fs.existsSync(meaningAudioPath) || useTts) && kural.tdk) {
-          console.log(`TTS meaning audio missing or forced via --use-tts. Generating for Kural ${kural.Number}...`);
+      const aiMeaningAudioPath = path.join(kuralDir, `${prefix}_ai_meaning_audio.mp3`);
+      const ttsMeaningAudioPath = path.join(kuralDir, `${prefix}_tts_meaning_audio.mp3`);
+
+      const generateTTS = async (targetPath: string) => {
+        if (!fs.existsSync(targetPath) && kural.tdk) {
+          console.log(`Generating Google TTS meaning audio for Kural ${kural.Number}...`);
           
           // Escape special characters for SSML
           const escapeXml = (unsafe: string) => unsafe.replace(/[<>&'"]/g, c => {
@@ -158,8 +161,9 @@ async function main() {
           await writeFile(tmpEn, enResponse.audioContent, 'binary');
           
           let targetLoudness = -16.0;
-          if (fs.existsSync(kuralAudioPath)) {
-            const detected = getAudioLoudness(kuralAudioPath);
+          const loudnessSource = fs.existsSync(kuralAudioPath) ? kuralAudioPath : masterAudioPath;
+          if (fs.existsSync(loudnessSource)) {
+            const detected = getAudioLoudness(loudnessSource);
             if (detected !== null) targetLoudness = detected;
           }
           
@@ -169,12 +173,12 @@ async function main() {
           console.log(`Normalizing both languages to ${targetLoudness} LUFS and concatenating...`);
           const filterComplex = `[0:a]loudnorm=I=${targetLoudness}:TP=-1.5:LRA=11,apad=pad_dur=1[a0];[1:a]loudnorm=I=${targetLoudness}:TP=-1.5:LRA=11[a1];[a0][a1]concat=n=2:v=0:a=1[out]`;
           
-          execSync(`"${ffmpegPath}" -y -i "${tmpTa}" -i "${tmpEn}" -filter_complex "${filterComplex}" -map "[out]" "${meaningAudioPath}"`);
+          execSync(`"${ffmpegPath}" -y -i "${tmpTa}" -i "${tmpEn}" -filter_complex "${filterComplex}" -map "[out]" "${targetPath}"`);
           
           fs.unlinkSync(tmpTa);
           fs.unlinkSync(tmpEn);
           
-          console.log(`Saved generated and normalized TTS audio to ${meaningAudioPath}`);
+          console.log(`Saved generated and normalized TTS audio to ${targetPath}`);
         }
       };
 
@@ -184,6 +188,23 @@ async function main() {
       const MAX_ATTEMPTS = 5;
       const { execSync } = require('child_process');
       const generatorDir = path.join(process.cwd(), '../kural-audio-generator');
+      
+      if (forceRegenerate || forceAudio) {
+        if (fs.existsSync(kuralAudioPath)) fs.unlinkSync(kuralAudioPath);
+        if (fs.existsSync(meaningAudioPath)) fs.unlinkSync(meaningAudioPath);
+        if (fs.existsSync(aiMeaningAudioPath)) fs.unlinkSync(aiMeaningAudioPath);
+        if (fs.existsSync(ttsMeaningAudioPath)) fs.unlinkSync(ttsMeaningAudioPath);
+        if (fs.existsSync(combinedAudioPath)) fs.unlinkSync(combinedAudioPath);
+      }
+
+      if (useTts) {
+        console.log("--use-tts flag detected. Forcing meaning audio to Google TTS...");
+        await generateTTS(ttsMeaningAudioPath);
+        if (fs.existsSync(ttsMeaningAudioPath)) {
+          fs.copyFileSync(ttsMeaningAudioPath, meaningAudioPath);
+          console.log("Successfully switched meaning audio to Google TTS!");
+        }
+      }
       
       while (!assetsReady) {
         const possibleExtensions = ['.png', '.jpg', '.jpeg', '.webp'];
@@ -197,10 +218,13 @@ async function main() {
           }
         }
         
-        // Either the split kural audio exists, OR the legacy combined audio exists.
-        const audioExists = fs.existsSync(kuralAudioPath) || fs.existsSync(combinedAudioPath);
+        // Either the split kural audio exists AND meaning audio exists, OR the legacy combined audio exists.
+        const audioExists = (fs.existsSync(kuralAudioPath) && fs.existsSync(meaningAudioPath)) || fs.existsSync(combinedAudioPath);
         
         if (!forceAudio && !audioExists && fs.existsSync(masterAudioPath)) {
+          // Pre-generate TTS meaning audio so it's ready instantly
+          await generateTTS(ttsMeaningAudioPath);
+
           const readline = require('readline');
           const splitInput = await new Promise<string>((resolve) => {
             const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -223,8 +247,26 @@ async function main() {
             console.log(`Splitting master audio at ${splitPoint} seconds using ffmpeg...`);
             const ffmpegPath = getFfmpegPath();
             execSync(`"${ffmpegPath}" -y -i "${masterAudioPath}" -t ${splitPoint} -c copy "${kuralAudioPath}"`, { stdio: 'ignore' });
-            execSync(`"${ffmpegPath}" -y -i "${masterAudioPath}" -ss ${splitPoint} -c copy "${meaningAudioPath}"`, { stdio: 'ignore' });
-            console.log(`Successfully split audio!`);
+            execSync(`"${ffmpegPath}" -y -i "${masterAudioPath}" -ss ${splitPoint} -c copy "${aiMeaningAudioPath}"`, { stdio: 'ignore' });
+            console.log(`Successfully split audio! AI meaning audio saved.`);
+            
+            // Prompt user to choose between the two meaning tracks
+            const choice = await new Promise<string>((resolve) => {
+              const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+              rl.question(`\nQC Check: Both AI and Google TTS meaning audios are ready. Which one should be used for the video? (1: AI, 2: TTS): `, (answer: string) => {
+                rl.close();
+                resolve(answer.trim());
+              });
+            });
+
+            if (choice === '2' || choice.toLowerCase() === 'tts') {
+               console.log("User selected Google TTS meaning. Copying to final destination...");
+               fs.copyFileSync(ttsMeaningAudioPath, meaningAudioPath);
+            } else {
+               console.log("User selected AI meaning. Copying to final destination...");
+               fs.copyFileSync(aiMeaningAudioPath, meaningAudioPath);
+            }
+
             continue;
           } else {
             console.log("Invalid split point. Please enter a number or 'r'.");
@@ -233,26 +275,6 @@ async function main() {
         }
         
         if (imageExists && audioExists && !forceRegenerate && !forceAudio && !forceImage) {
-          const readline = require('readline');
-
-          if (!useTts && fs.existsSync(meaningAudioPath)) {
-            const ttsChoice = await new Promise<boolean>((resolve) => {
-              const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-              rl.question(`\nQC Check: Is the AI-generated meaning audio acceptable? (If 'n', Google TTS will be used instead) [Y/n]: `, (answer: string) => {
-                rl.close();
-                const ans = answer.trim().toLowerCase();
-                resolve(ans === '' || ans === 'y' || ans === 'yes');
-              });
-            });
-            
-            if (!ttsChoice) {
-              console.log("User rejected AI meaning. Overwriting with Google TTS...");
-              useTts = true;
-            }
-          }
-
-          await generateTTSIfNeeded();
-
           assetsReady = true;
           console.log(`\nAll required assets for Kural ${kural.Number} are present and approved!`);
           break;
@@ -270,12 +292,6 @@ async function main() {
         
         try {
           let forceFlag = '';
-          // If this is a retry attempt (attempts > 1), we should forcefully regenerate audio
-          // because the previous attempt clearly failed to produce the split files (e.g. no silence detected).
-          if (attempts > 1) {
-             console.log(`Retry attempt ${attempts}. Forcing audio regeneration to fix broken state...`);
-             forceAudio = true;
-          }
           if (forceRegenerate) forceFlag += ' --force';
           if (forceAudio) forceFlag += ' --force-audio';
           if (forceImage) forceFlag += ' --force-image';
@@ -426,7 +442,28 @@ async function main() {
         inputProps: mainProps,
       });
 
-      console.log(`Saved Final Video to ${finalVideoPath}`);
+      console.log(`Saved Remotion Video to ${finalVideoPath}`);
+
+      const introVideoPath = path.resolve(process.cwd(), '../../public/Daily Kural Intro.mp4');
+      if (fs.existsSync(introVideoPath)) {
+        console.log('Stitching Intro Video...');
+        const tempFinalPath = finalVideoPath.replace('.mp4', '_remotion_output.mp4');
+        fs.renameSync(finalVideoPath, tempFinalPath);
+        
+        const ffmpegPath = getFfmpegPath();
+        const { execSync } = require('child_process');
+        
+        // Use a highly robust filter_complex that normalizes resolution, aspect ratio, and framerate 
+        // before concatenating. This prevents the "video freezes but audio plays" issue caused by mismatched timebases.
+        const filter = `[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[v0];` +
+                       `[1:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[v1];` +
+                       `[v0][0:a:0][v1][1:a:0]concat=n=2:v=1:a=1[v][a]`;
+                       
+        execSync(`"${ffmpegPath}" -y -i "${introVideoPath}" -i "${tempFinalPath}" -filter_complex "${filter}" -map "[v]" -map "[a]" -c:v libx264 -c:a aac "${finalVideoPath}"`, { stdio: 'ignore' });
+        console.log('Intro video stitched successfully (re-encoded to guarantee playback compatibility)!');
+        
+        fs.unlinkSync(tempFinalPath);
+      }
 
       stateManager.addRecord({
         date: dateStr,
