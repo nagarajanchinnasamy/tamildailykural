@@ -1,0 +1,24 @@
+{
+  "name": "youtube-publisher",
+  "version": "1.0.0",
+  "description": "Publishes generated Kural videos to YouTube Shorts",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "translate": "tsx src/translate-cli.ts"
+  },
+  "dependencies": {
+    "@google/generative-ai": "latest",
+    "dotenv": "^16.4.7",
+    "ffmpeg-static": "^5.2.0",
+    "google-auth-library": "^9.15.0",
+    "googleapis": "^144.0.0",
+    "minimist": "^1.2.8"
+  },
+  "devDependencies": {
+    "@types/minimist": "^1.2.5",
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
