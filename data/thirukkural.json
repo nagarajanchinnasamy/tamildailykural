@@ -19773,22 +19773,26 @@
     {
       "Number": 988,
       "Line1": "இன்மை ஒருவற்கு இளிவன்று சால்பென்னும்",
-      "Line2": "திண்மை உண் டாகப் பெறின்.",
+      "Line2": "திண்மை உண்டாகப் பெறின்.",
       "Translation": "No shame there is in poverty To one strong in good quality",
       "mv": "சால்பு என்னும் வலிமை உண்டாகப் பெற்றால் ஒருவனுக்குப் பொருள் இல்லாத குறையாகிய வறுமை இழிவானது அன்று.",
       "sp": "சான்றாண்மை எனப்படும் மன ஆற்றல் மட்டும் ஒருவனிடம் இருந்து விடுமானால், வறுமை அவனுக்கு இழிவு ஆகாது.",
       "mk": "சால்பு என்கிற உறுதியைச் செல்வமெனக் கொண்டவருக்கு வறுமை என்பது இழிவு தரக் கூடியதல்ல",
       "couplet": "To soul with perfect virtue's strength endued,Brings no disgrace the lack of every earthly good",
       "explanation": "Poverty is no disgrace to one who abounds in good qualities",
-      "transliteration1": "Inmai Oruvarku Ilivandru Saalpennum",
-      "transliteration2": "Thinmai Un Taakap Perin",
-      "title": "இன்மை ஒருவற்கு",
-      "tdk": "சால்பு என்கிற உறுதியைச் செல்வமெனக் கொண்டவருக்கு வறுமை என்பது இழிவு தரக் கூடியதல்ல",
+      "transliteration1": "Inmai Oruvarku Ilivandru Saalbennum",
+      "transliteration2": "Thinmai Undaakap Perin",
+      "title": "சால்பென்னும் திண்மை",
+      "tdk": "சான்றாண்மையில் வலிமையோடு விளங்கும் ஒருவருக்கு, வறுமை இழிவானது அன்று",
       "tdk-explanation": "Poverty is no disgrace to one who abounds in good qualities",
       "split": [
-        "இன்மை ஒருவற்கு இளிவன்று சால்பென்னும்",
-        "திண்மை உண் டாகப் பெறின்."
-      ]
+        "இன்மை ஒருவற்கு இளிவன்று",
+        "சால்பென்னும்",
+        "திண்மை உண்டாகப் பெறின்."
+      ],
+      "tdk-malayalam": "നല്ല ഗുണങ്ങളാൽ സമ്പന്നനായ ഒരാൾക്ക് ദാരിദ്ര്യം ഒരു അപമാനമല്ല.",
+      "tdk-kannada": "ಉತ್ತಮ ಗುಣಗಳಿಂದ ಸಮೃದ್ಧನಾದವನಿಗೆ ಬಡತನವು ಅವಮಾನವಲ್ಲ.",
+      "tdk-telugu": "మంచి గుణాలతో నిండినవానికి పేదరికం అవమానం కాదు."
     },
     {
       "Number": 989,
@@ -19803,12 +19807,16 @@
       "transliteration1": "Oozhi Peyarinum Thaampeyaraar Saandraanmaikku",
       "transliteration2": "Aazhi Enappatu Vaar",
       "title": "ஊழி பெயரினும்",
-      "tdk": "தமக்குரிய கடமைகளைக் கண்ணியத்துடன் ஆற்றுகின்ற சான்றோர் எல்லாக் கடல்களும் தடம் புரண்டு மாறுகின்ற ஊழிக்காலம் ஏற்பட்டாலும்கூடத், தம்நிலை மாறாத கடலாகத் திகழ்வார்கள்",
-      "tdk-explanation": "Those who are said to be the shore of the sea of perfection will never change, though ages may change",
+      "tdk": "ஊழிக்காலம் போன்ற கொடிய துயர நிலையில் இருந்தாலும் சான்றாண்மையில் கடல் போல் திகழ்பவர் தமது உயர்ந்த பண்பில் மாற மாட்டார்.",
+      "tdk-explanation": "Even in times of cosmic destruction, those who are oceans of virtue will never alter their noble character.",
       "split": [
-        "ஊழி பெயரினும் தாம்பெயரார் சான்றாண்மைக்கு",
-        "ஆழி எனப்படு வார்."
-      ]
+        "ஊழி பெயரினும் தாம் பெயரார்",
+        "சான்றாண்மைக்கு ஆழி",
+        "எனப் படுவார்"
+      ],
+      "tdk-malayalam": "പ്രപഞ്ചനാശത്തിന്റെ സമയത്തുപോലും, സദ്ഗുണസാഗരങ്ങളായവർ തങ്ങളുടെ ഉൽകൃഷ്ട സ്വഭാവം ഒരിക്കലും മാറ്റുകയില്ല.",
+      "tdk-kannada": "ಪ್ರಳಯಕಾಲದಲ್ಲಿಯೂ ಸಹ, ಸದ್ಗುಣಸಾಗರರಾದವರು ತಮ್ಮ ಉದಾತ್ತ ಸ್ವಭಾವವನ್ನು ಎಂದಿಗೂ ಬದಲಾಯಿಸುವುದಿಲ್ಲ.",
+      "tdk-telugu": "ప్రళయకాలంలోనైనా, సద్గుణసాగరులైనవారు తమ ఉదాత్త స్వభావాన్ని ఎప్పటికీ మార్చుకోరు."
     },
     {
       "Number": 990,

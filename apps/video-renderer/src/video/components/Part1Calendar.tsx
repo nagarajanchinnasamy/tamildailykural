@@ -103,16 +103,14 @@ export const Part1Calendar: React.FC<{
             </div>
 
             {/* Block 2-b: Lower Center (Thingal, Paruvam) */}
-            <div style={{ position: 'absolute', top: '75%', left: 0, width: '100%', transform: 'translateY(-50%)', display: 'flex', justifyContent: 'center' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', width: '85%' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <h3 style={{ fontSize: '70px', color: theme.primaryText, margin: 0, fontWeight: 700 }}>திங்கள்</h3>
-                  <h2 style={{ fontSize: '100px', color: theme.highlightText, margin: '10px 0 0 0', fontWeight: 800 }}>{tamilMonthName}</h2>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <h3 style={{ fontSize: '70px', color: theme.primaryText, margin: 0, fontWeight: 700 }}>பருவம்</h3>
-                  <h2 style={{ fontSize: '100px', color: theme.highlightText, margin: '10px 0 0 0', fontWeight: 800 }}>{tamilSeason}</h2>
-                </div>
+            <div style={{ position: 'absolute', top: '75%', left: 0, width: '100%', transform: 'translateY(-50%)', display: 'flex', flexDirection: 'row' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 20px' }}>
+                <h3 style={{ fontSize: '70px', color: theme.primaryText, margin: 0, fontWeight: 700, textAlign: 'center' }}>திங்கள்</h3>
+                <h2 style={{ fontSize: '100px', color: theme.highlightText, margin: '10px 0 0 0', fontWeight: 800, textAlign: 'center', wordBreak: 'keep-all' }}>{tamilMonthName}</h2>
+              </div>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 20px' }}>
+                <h3 style={{ fontSize: '70px', color: theme.primaryText, margin: 0, fontWeight: 700, textAlign: 'center' }}>பருவம்</h3>
+                <h2 style={{ fontSize: '100px', color: theme.highlightText, margin: '10px 0 0 0', fontWeight: 800, textAlign: 'center', wordBreak: 'keep-all' }}>{tamilSeason}</h2>
               </div>
             </div>
 
