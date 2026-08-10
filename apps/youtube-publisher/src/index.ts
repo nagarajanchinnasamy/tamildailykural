@@ -230,6 +230,28 @@ async function extractAndSetThumbnail(auth: any, videoId: string, videoPath: str
   }
 }
 
+function getAdhikaramInfo(kuralNumber: number): { name: string; number: number } {
+  const detailJsonPath = path.resolve(process.cwd(), '../../data/detail.json');
+  if (fs.existsSync(detailJsonPath)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(detailJsonPath, 'utf8'));
+      const sections = data[0]?.section?.detail || [];
+      for (const sec of sections) {
+        const cGroups = sec.chapterGroup?.detail || [];
+        for (const cg of cGroups) {
+          const chapters = cg.chapters?.detail || [];
+          for (const ch of chapters) {
+            if (kuralNumber >= ch.start && kuralNumber <= ch.end) {
+              return { name: ch.name, number: ch.number };
+            }
+          }
+        }
+      }
+    } catch (e) {}
+  }
+  return { name: '', number: Math.ceil(kuralNumber / 10) };
+}
+
 async function main() {
   const argv = minimist(process.argv.slice(2));
   const dateStr = argv['start-date'] || argv['date']; // Gregorian date e.g. 2026-06-13
@@ -282,6 +304,7 @@ async function main() {
   // 2. Fetch Translations (using Gemini AI)
   console.log(`Ensuring all language translations are available for Kural ${kuralNum}...`);
   const kuralData = await ensureTranslations(kuralNum);
+  const adhikaram = getAdhikaramInfo(kuralNum);
 
   // 3. Prepare Metadata variables
   const [tYearStr, tMonthStr, tDayStr] = tamilDateArg.split('-');
@@ -290,14 +313,17 @@ async function main() {
   
   const gregorianYear = new Date(`${dateStr}T00:00:00`).getFullYear();
   const oldTamilYearName = getPureTamilYearName(gregorianYear);
-  const tamilTitle = kuralData.title;
+  const titleText = `${kuralNum} ${adhikaram.name || kuralData.title}`;
 
-  // Title: {Tamil date} {Kural Title} #tamilcalendar #tamilmonth #tamilseasons #kural #valluvar #{old-tamil-month-name}
-  const titleRaw = `${tamilDateArg} ${tamilTitle} #tamilcalendar #tamilmonth #tamilseasons #kural #valluvar #${oldTamilYearName}`;
+  // Title: {Number Athikaram Name} #tamilcalendar #tamilmonth #tamilseasons #kural #valluvar #{old-tamil-month-name}
+  const titleRaw = `${titleText} #tamilcalendar #tamilmonth #tamilseasons #kural #valluvar #${oldTamilYearName}`;
   const title = titleRaw.length > 100 ? titleRaw.substring(0, 97) + '...' : titleRaw;
 
-  // Description format
-  const descRaw = `${kuralData.Line1}
+  // Description format: Start with 'குறள் {Number} - {Athikaram Name}' followed by full Kural details
+  const headerLine = `குறள் ${kuralNum}${adhikaram.name ? ` - ${adhikaram.name}` : ''}`;
+  const descRaw = `${headerLine}
+
+${kuralData.Line1}
 ${kuralData.Line2}
 
 ${kuralData.transliteration1}

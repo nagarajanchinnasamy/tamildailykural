@@ -11,16 +11,30 @@ async function run() {
   const force = argv['force'] === true || argv['force'] === 'true';
   const forceAudio = argv['force-audio'] === true || argv['force-audio'] === 'true' || force;
   const forceImage = argv['force-image'] === true || argv['force-image'] === 'true' || force;
+  const skipImage = argv['skip-image'] === true || argv['skip-image'] === 'true';
+  const skipAudio = argv['skip-audio'] === true || argv['skip-audio'] === 'true';
   const mood = argv['mood'];
   const splitAt = parseInt(argv['split-at'], 10) || 15; // default to 15 seconds
 
-  if (isNaN(kuralNumber)) {
+  const calendarScript = argv['calendar-script'];
+  const calendarOut = argv['calendar-out'];
+
+  const generateBgm = argv['generate-bgm'] === true;
+
+  if (calendarScript && calendarOut) {
+    // Generate calendar audio mode
+  } else if (generateBgm) {
+    // Generate BGM mode
+  } else if (isNaN(kuralNumber)) {
     console.error("Usage: npm start -- --kural=N [--force] [--force-audio] [--force-image] [--mood=M] [--split-at=15]");
+    console.error("   OR: npm start -- --calendar-script='text' --calendar-out='/path/to/audio.mp3'");
+    console.error("   OR: npm start -- --generate-bgm");
     process.exit(1);
   }
 
   const dataDir = path.resolve(__dirname, '../../../data');
   const thirukkuralPath = path.join(dataDir, 'thirukkural.json');
+  const dbPath = path.join(dataDir, 'thirukkural.db');
   
   if (!fs.existsSync(thirukkuralPath)) {
     console.error(`Database not found at ${thirukkuralPath}`);
@@ -28,21 +42,50 @@ async function run() {
   }
 
   const db = JSON.parse(fs.readFileSync(thirukkuralPath, 'utf8'));
-  const kural = db.kural.find((k: any) => k.Number === kuralNumber);
+  let kural: any = null;
+  if (!calendarScript && !generateBgm) {
+    kural = db.kural.find((k: any) => k.Number === kuralNumber);
 
-  if (!kural) {
-    console.error(`Kural ${kuralNumber} not found.`);
-    process.exit(1);
+    // Try reading latest row from SQLite DB if available
+    if (fs.existsSync(dbPath)) {
+      try {
+        const output = execSync(`sqlite3 "${dbPath}" ".mode json" "SELECT * FROM Kurals WHERE Number = ${kuralNumber};"`, { encoding: 'utf8' });
+        const rows = JSON.parse(output.trim() || '[]');
+        if (rows.length > 0) {
+          const row = rows[0];
+          kural = {
+            ...kural,
+            ...row,
+            'tdk-explanation': row.tdk_explanation || row['tdk-explanation'] || kural?.['tdk-explanation'],
+            split: typeof row.split === 'string' ? JSON.parse(row.split) : (row.split || kural?.split)
+          };
+        }
+      } catch (e) {
+        // Fallback to JSON
+      }
+    }
+
+    if (!kural) {
+      console.error(`Kural ${kuralNumber} not found.`);
+      process.exit(1);
+    }
   }
 
   // Calculate adhikaaram (integer division by 10, ceiling)
-  const adhikaaram = Math.ceil(kuralNumber / 10);
+  const adhikaaram = kural ? Math.ceil(kuralNumber / 10) : 1;
   const adhikaaramStr = `Adhikaaram_${adhikaaram.toString().padStart(4, '0')}`;
-  const kuralStr = `Kural_${kural.Number.toString().padStart(4, '0')}`;
+  const kuralStr = kural ? `Kural_${kural.Number.toString().padStart(4, '0')}` : 'Calendar';
   
-  const publicDir = path.resolve(__dirname, '../../../public');
-  const kuralDir = path.join(publicDir, 'Kurals', adhikaaramStr, kuralStr);
-  const filePrefix = kural.Number.toString().padStart(4, '0');
+  let publicDir = path.resolve(__dirname, '../../../public');
+  let kuralDir = path.join(publicDir, 'Kurals', adhikaaramStr, kuralStr);
+  
+  if (calendarScript && calendarOut) {
+    kuralDir = path.dirname(calendarOut);
+  } else if (generateBgm) {
+    kuralDir = publicDir; // Download directly into public dir
+  }
+  
+  const filePrefix = kural ? kural.Number.toString().padStart(4, '0') : '';
   const masterAudioOutPath = path.join(kuralDir, `${filePrefix}_master_audio.mp3`);
   const kuralAudioOutPath = path.join(kuralDir, `${filePrefix}_kural_audio.mp3`);
   const meaningAudioOutPath = path.join(kuralDir, `${filePrefix}_meaning_audio.mp3`);
@@ -58,13 +101,17 @@ async function run() {
   }
 
   let needsImage = true;
-  const possibleImageExts = ['.png', '.jpg', '.jpeg', '.webp'];
-  for (const ext of possibleImageExts) {
-    const imgPath = path.join(kuralDir, `${filePrefix}_kural_image${ext}`);
-    if (fs.existsSync(imgPath) && !forceImage) {
-      console.log(`Image already exists. Skipping image generation...`);
-      needsImage = false;
-      break;
+  if (skipImage) {
+    needsImage = false;
+  } else {
+    const possibleImageExts = ['.png', '.jpg', '.jpeg', '.webp'];
+    for (const ext of possibleImageExts) {
+      const imgPath = path.join(kuralDir, `${filePrefix}_kural_image${ext}`);
+      if (fs.existsSync(imgPath) && !forceImage) {
+        console.log(`Image already exists. Skipping image generation...`);
+        needsImage = false;
+        break;
+      }
     }
   }
 
@@ -81,12 +128,14 @@ async function run() {
     }
   }
 
-  if (!needsAudio && !needsImage) {
+  if (!needsAudio && !needsImage && !calendarScript) {
     console.log("All audio and image assets already exist. Exiting.");
     return;
   }
 
-  // Generate word split (fallback if kural.split doesn't exist)
+  let masterAudioPrompt = '';
+  if (!calendarScript && !generateBgm) {
+    // Generate word split (fallback if kural.split doesn't exist)
   const splitLine = (line: string) => {
     const words = line.trim().split(' ');
     const groups = [];
@@ -105,7 +154,7 @@ async function run() {
     ? `IMPORTANT MOOD INSTRUCTION: You must strictly set the musical style and background music (BGM) to: "${finalMood}". Do not use any other tone.`
     : `IMPORTANT MOOD INSTRUCTION: Use a "Tranquillo" (calm and peaceful) or "Ambient" musical style. The BGM must be extremely simple, soft, and meditative. STRICTLY NO percussion, NO mridangam, and NO heavy beats. Use only gentle, sustained legato tones (like a subtle drone, soft strings, or singing bowls).`;
 
-  const masterAudioPrompt = `Generate an audio clip for singing a verse followed by reading out its meanings.
+  masterAudioPrompt = `Generate an audio clip for singing a verse followed by reading out its meanings.
 
 TEMPO & STRUCTURE INSTRUCTION: The verse must be sung at a steady, moderate pace. Use a "Moderato" tempo (around 100-115 BPM). CRITICAL TIMING: The singing portion of the verse MUST NOT exceed 15 seconds. The ENTIRE audio clip (including singing, the pause, and reading the meanings) MUST be completed in under 35 seconds. Be incredibly concise: DO NOT add any musical introductions, interludes, or outtros. Start singing the verse immediately. Do not loop or repeat any lines. Keep the entire composition tight and straight to the point.
 
@@ -125,11 +174,16 @@ Tamil Meaning:
 ${kural.tdk}
 
 English Meaning:
-${kural['tdk-explanation']}
+${kural['tdk-explanation'] || kural.tdk_explanation || kural.explanation}
 
 ${moodInstruction}`;
+  }
   
-  const imagePrompt = `Based on the following Thirukkural meaning, please deeply analyze its context and emotional tone, and generate a beautiful, highly-detailed cinematic image that represents it. You must decide the best artistic style for this (e.g., photorealistic, watercolor, ancient Tamil aesthetic, minimalist, etc.) based on the meaning.\n\nTamil Meaning:\n${kural.tdk}\n\nEnglish Meaning:\n${kural['tdk-explanation']}\n\nCRITICAL RULES:\n1. DO NOT INCLUDE ANY TEXT, WORDS, OR LETTERS INSIDE THE IMAGE UNDER ANY CIRCUMSTANCES.\n2. ASPECT RATIO: You MUST generate the image in a 9:16 vertical portrait aspect ratio (mobile phone orientation). Do not generate a landscape image.\n3. SECULAR AND UNIVERSAL: Thirukkural is a universal, secular text. DO NOT include any specific religious marks (like ash marks, tilaks), religious clothing (like saffron robes), or religious backgrounds (like temples or shrines). Keep the subjects and environments universally relatable and culturally secular.\nReply with ONLY the generated image.`;
+  let imagePrompt = '';
+  if (kural) {
+    const englishExp = kural['tdk-explanation'] || kural.tdk_explanation || kural.explanation;
+    imagePrompt = `Based on the following Thirukkural meaning, please deeply analyze its context and emotional tone, and generate a beautiful, highly-detailed cinematic image that represents it. You must decide the best artistic style for this (e.g., photorealistic, watercolor, ancient Tamil aesthetic, minimalist, etc.) based on the meaning.\n\nTamil Meaning:\n${kural.tdk}\n\nEnglish Meaning:\n${englishExp}\n\nCRITICAL RULES:\n1. DO NOT INCLUDE ANY TEXT, WORDS, OR LETTERS INSIDE THE IMAGE UNDER ANY CIRCUMSTANCES.\n2. ASPECT RATIO: You MUST generate the image in a 9:16 vertical portrait aspect ratio (mobile phone orientation). Do not generate a landscape image.\n3. SECULAR AND UNIVERSAL: Thirukkural is a universal, secular text. DO NOT include any specific religious marks (like ash marks, tilaks), religious clothing (like saffron robes), or religious backgrounds (like temples or shrines). Keep the subjects and environments universally relatable and culturally secular.\nReply with ONLY the generated image.`;
+  }
 
   let browser: any;
   let page: any;
@@ -182,6 +236,7 @@ ${moodInstruction}`;
       console.log("press ENTER in this terminal to continue...\n");
 
       await new Promise<void>((resolve) => {
+        if (process.env.NON_INTERACTIVE === 'true') return resolve();
         const rl = require('readline').createInterface({
           input: process.stdin,
           output: process.stdout
@@ -270,7 +325,7 @@ ${moodInstruction}`;
       for (let i = 0; i < 240; i++) { 
         const files = fs.readdirSync(kuralDir);
         // Find a newly created MP3 that doesn't match our specific outpaths yet, or one that was just renamed by chrome
-        const audioFile = files.find(f => f.endsWith('.mp3') && !f.endsWith('_kural_audio.mp3') && !f.endsWith('_meaning_audio.mp3') && !f.endsWith('_master_audio.mp3'));
+        const audioFile = files.find(f => f.endsWith('.mp3') && !f.endsWith('_kural_audio.mp3') && !f.endsWith('_meaning_audio.mp3') && !f.endsWith('_master_audio.mp3') && !f.endsWith('_calendar_audio.mp3'));
         if (audioFile && !audioFile.includes('.crdownload')) {
           downloadedFile = path.join(kuralDir, audioFile);
           break;
@@ -292,6 +347,48 @@ ${moodInstruction}`;
     } catch (e) {
       console.error(`Timeout waiting for ${label} audio generation. It took longer than 3 minutes or failed.`);
     }
+  }
+
+  if (calendarScript && calendarOut) {
+    const calendarAudioPrompt = `Generate a short background music track mixed with a clear, dramatic, and inspiring voiceover announcement.
+    
+MOOD & STYLE INSTRUCTION: The music should feel like the "beginning of a new day" - conveying freshness, brightness, and a sense of dawn. Use a subtle, uplifting, and cinematic background score. The voice must be dramatic, clear, and professional.
+
+Read out the following text exactly as provided, with good pacing and dramatic pauses at the punctuation marks:
+
+${calendarScript}
+
+Make sure the audio is fully generated and downloadable as a single MP3 file.`;
+    
+    // Create directory if it doesn't exist
+    const outDir = path.dirname(calendarOut);
+    if (!fs.existsSync(outDir)) {
+      fs.mkdirSync(outDir, { recursive: true });
+    }
+    
+    console.log("Starting Calendar Audio Generation...");
+    await generateAudio(calendarAudioPrompt, calendarOut, 'Calendar Audio');
+    if (browser) {
+      await browser.close();
+    }
+    return;
+  }
+
+  if (generateBgm) {
+    const bgmPrompt = `Generate a purely instrumental background music track (NO VOCALS OR SINGING).
+
+MOOD & STYLE INSTRUCTION: The music should feel like the "beginning of a new day" - conveying freshness, brightness, and a sense of dawn. 
+CRITICAL INSTRUMENTATION: Use ONLY old, ancient Tamil traditional instruments (e.g., Yaazh, Pullanguzhal/Flute, gentle Thavil, or soft Nadaswaram). STRICTLY DO NOT use standard Western instruments (no piano, no synth, no western strings). DO NOT make it sound like classical Carnatic music; it should sound like ancient, pure, traditional Tamil folk or Sangam-era ambient music. The music must remain subtle and uplifting, suitable for a morning background score.
+
+Make sure the audio is fully generated and downloadable as a single MP3 file. NO VOCALS.`;
+    
+    const bgmOutPath = path.join(publicDir, 'bgm.mp3');
+    console.log("Starting Background Music Generation...");
+    await generateAudio(bgmPrompt, bgmOutPath, 'BGM');
+    if (browser) {
+      await browser.close();
+    }
+    return;
   }
 
   async function generateImage(prompt: string, outputPath: string) {

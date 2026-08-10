@@ -1,4 +1,4 @@
-import { interpolate, useCurrentFrame, useVideoConfig, AbsoluteFill } from 'remotion';
+import { interpolate, useCurrentFrame, useVideoConfig, AbsoluteFill, Audio, staticFile } from 'remotion';
 import React from 'react';
 import { SharedBackground } from './SharedBackground';
 import { useTheme } from '../theme';
@@ -49,8 +49,9 @@ export const Part1Calendar: React.FC<{
   tamilMonth: number;
   tamilDay: number;
   fadeInOnly?: boolean;
-  fadeOutOnly?: boolean 
-}> = ({ dateStr, tamilYear, tamilMonth, tamilDay, fadeInOnly, fadeOutOnly }) => {
+  fadeOutOnly?: boolean;
+  audioPath?: string;
+}> = ({ dateStr, tamilYear, tamilMonth, tamilDay, fadeInOnly, fadeOutOnly, audioPath }) => {
   const theme = useTheme();
   const dateObj = new Date(`${dateStr}T00:00:00`);
   const dayOfWeek = TAMIL_DAYS[dateObj.getDay()];
@@ -75,8 +76,7 @@ export const Part1Calendar: React.FC<{
   );
 
   const gregorianYear = dateObj.getFullYear();
-  // Using the tamilYear prop instead of calculating it
-  const thiruvalluvarYear = tamilYear;
+  const thiruvalluvarYear = tamilYear < 2050 ? tamilYear + 31 : tamilYear;
   const tamilYearName = getPureTamilYearName(gregorianYear);
 
   const mm = String(tamilMonth).padStart(2, '0');
@@ -121,6 +121,7 @@ export const Part1Calendar: React.FC<{
 
           </div>
         </SharedBackground>
+        {audioPath && <Audio src={staticFile(audioPath)} />}
       </div>
     </AbsoluteFill>
   );

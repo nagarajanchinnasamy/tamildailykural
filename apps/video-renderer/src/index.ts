@@ -174,8 +174,8 @@ async function main() {
           const tmpTa = path.join(kuralDir, 'tmp_ta.mp3');
           const tmpEn = path.join(kuralDir, 'tmp_en.mp3');
           
-          await writeFile(tmpTa, taResponse.audioContent, 'binary');
-          await writeFile(tmpEn, enResponse.audioContent, 'binary');
+          await writeFile(tmpTa, taResponse.audioContent || new Uint8Array(), 'binary');
+          await writeFile(tmpEn, enResponse.audioContent || new Uint8Array(), 'binary');
           
           let targetLoudness = -16.0;
           const loudnessSource = fs.existsSync(kuralAudioPath) ? kuralAudioPath : masterAudioPath;
@@ -189,7 +189,7 @@ async function main() {
           console.log(`Normalizing both languages to ${targetLoudness} LUFS and concatenating...`);
           const filterComplex = `[0:a]loudnorm=I=${targetLoudness}:TP=-1.5:LRA=11,apad=pad_dur=1[a0];[1:a]loudnorm=I=${targetLoudness}:TP=-1.5:LRA=11[a1];[a0][a1]concat=n=2:v=0:a=1[out]`;
           
-          execSync(`"${ffmpegPath}" -y -i "${tmpTa}" -i "${tmpEn}" -filter_complex "${filterComplex}" -map "[out]" "${targetPath}"`);
+          execSync(`"${ffmpegPath}" -nostdin -y -i "${tmpTa}" -i "${tmpEn}" -filter_complex "${filterComplex}" -map "[out]" "${targetPath}"`);
           
           fs.unlinkSync(tmpTa);
           fs.unlinkSync(tmpEn);
@@ -197,6 +197,12 @@ async function main() {
           console.log(`Saved generated and normalized TTS audio to ${targetPath}`);
         }
       };
+
+      if (argv['generate-tts-only']) {
+        console.log("--generate-tts-only flag detected. Generating TTS and exiting.");
+        await generateTTS(ttsMeaningAudioPath);
+        process.exit(0);
+      }
 
       // --- NEW LOGIC: Loop Audio/Image Generator until files exist ---
       let assetsReady = false;
@@ -242,6 +248,7 @@ async function main() {
 
           const readline = require('readline');
           const splitInput = await new Promise<string>((resolve) => {
+            if (process.env.NON_INTERACTIVE === 'true') return resolve('15');
             const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
             rl.question(`\nQC Check: Master audio generated. Enter split point in seconds (e.g. 13.5), or type 'r' to reject and regenerate AI audio: `, (answer: string) => {
               rl.close();
@@ -261,12 +268,13 @@ async function main() {
           if (!isNaN(splitPoint) && splitPoint > 0) {
             console.log(`Splitting master audio at ${splitPoint} seconds using ffmpeg...`);
             const ffmpegPath = getFfmpegPath();
-            execSync(`"${ffmpegPath}" -y -i "${masterAudioPath}" -t ${splitPoint} -c copy "${kuralAudioPath}"`, { stdio: 'ignore' });
-            execSync(`"${ffmpegPath}" -y -i "${masterAudioPath}" -ss ${splitPoint} -c copy "${aiMeaningAudioPath}"`, { stdio: 'ignore' });
+            execSync(`"${ffmpegPath}" -nostdin -y -i "${masterAudioPath}" -t ${splitPoint} -c copy "${kuralAudioPath}"`, { stdio: 'inherit' });
+            execSync(`"${ffmpegPath}" -nostdin -y -i "${masterAudioPath}" -ss ${splitPoint} -c copy "${aiMeaningAudioPath}"`, { stdio: 'inherit' });
             console.log(`Successfully split audio! AI meaning audio saved.`);
             
             // Prompt user to choose between the two meaning tracks
             const choice = await new Promise<string>((resolve) => {
+              if (process.env.NON_INTERACTIVE === 'true') return resolve('2');
               const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
               rl.question(`\nQC Check: Both AI and Google TTS meaning audios are ready. Which one should be used for the video? (1: AI, 2: TTS): `, (answer: string) => {
                 rl.close();
@@ -332,6 +340,7 @@ async function main() {
       const readline = require('readline');
       
       const proceed = await new Promise<boolean>((resolve) => {
+        if (process.env.NON_INTERACTIVE === 'true') return resolve(true);
         const rl = readline.createInterface({
           input: process.stdin,
           output: process.stdout
@@ -358,7 +367,7 @@ async function main() {
         console.log("\nNo split point matched... running split_audio.py logic");
         try {
           const ffmpegPath = getFfmpegPath();
-          execSync(`"${ffmpegPath}" -y -i "${combinedAudioPath}" -t 15 -c copy "${kuralAudioPath}"`);
+          execSync(`"${ffmpegPath}" -nostdin -y -i "${combinedAudioPath}" -t 15 -c copy "${kuralAudioPath}"`);
         } catch (err) {
           console.warn('Legacy split failed:', err);
         }
@@ -404,14 +413,7 @@ async function main() {
         imagePath: fs.existsSync(imagePath) ? `${relativeKuralDir}/${path.basename(imagePath)}` : undefined
       };
 
-      console.log('Bundling Remotion project...');
-      const bundled = await bundle(path.join(process.cwd(), 'src/video/index.ts'), () => undefined, {
-        webpackOverride: (config) => config,
-        publicDir: path.join(process.cwd(), '../../public')
-      });
 
-      console.log('Rendering Final Daily Video...');
-      const totalFrames = 90 + part2Frames + part3Frames + 90; // part1 + part2 + part3 + part4
       
       let selectedTheme = THEMES.indigo;
       if (themeArg && THEMES[themeArg]) {
@@ -430,20 +432,150 @@ async function main() {
       const tamilYm = `${tYear}-${tMonthStrPad}`;
       const tamilDateStr = `${tYear}-${tMonthStrPad}-${currentTDayStrPad}`;
 
+      const dateObj = new Date(`${dateStr}T00:00:00`);
+      const thiruvalluvarYear = tYear < 2050 ? tYear + 31 : tYear;
+
+      // Calendar Audio Generation
+      const calendarAudioDir = kuralDir;
+      if (!fs.existsSync(calendarAudioDir)) {
+        fs.mkdirSync(calendarAudioDir, { recursive: true });
+      }
+      const calendarAudioFileName = `${prefix}_calendar_audio.mp3`;
+      const calendarAudioPath = path.join(calendarAudioDir, calendarAudioFileName);
+      const relativeCalendarAudioPath = `${relativeKuralDir}/${calendarAudioFileName}`;
+
+      if (!fs.existsSync(calendarAudioPath) || forceRegenerate) {
+        console.log(`Generating TTS calendar audio for ${tamilDateStr}...`);
+        
+        const TAMIL_DAYS = [
+          'ஞாயிறு', 'திங்கள்', 'செவ்வாய்', 'அறிவன்', 'வியாழன்', 'வெள்ளி', 'காரி'
+        ];
+        const dayOfWeek = TAMIL_DAYS[dateObj.getDay()];
+        
+        const TAMIL_MONTH_STARTS = [
+          { name: 'சுறவம்', season: 'குளிர்', monthNum: 10 },
+          { name: 'கும்பம்', season: 'பனி', monthNum: 11 },
+          { name: 'மீனம்', season: 'நிறைபனி', monthNum: 12 },
+          { name: 'மேழம்', season: 'சுடர்', monthNum: 1 },
+          { name: 'விடை', season: 'அழல்', monthNum: 2 },
+          { name: 'இரட்டை', season: 'வளி', monthNum: 3 },
+          { name: 'கடகம்', season: 'முகில்', monthNum: 4 },
+          { name: 'மடங்கல்', season: 'சாரல்', monthNum: 5 },
+          { name: 'கன்னி', season: 'பெயல்', monthNum: 6 },
+          { name: 'துலை', season: 'தாரை', monthNum: 7 },
+          { name: 'நளி', season: 'பசுமை', monthNum: 8 },
+          { name: 'சிலை', season: 'சீர்மை', monthNum: 9 }
+        ];
+        
+        const PURE_TAMIL_YEARS = [
+          'நற்றோன்றல்', 'உயர்தோன்றல்', 'வெள்ளொளி', 'பேருவகை', 'மக்கட்செல்வம்',
+          'அயல்முனி', 'திருமுகம்', 'தோற்றம்', 'இளமை', 'மாழை',
+          'ஈச்சுரம்', 'கூலவளம்', 'முதன்மை', 'நேர்நிரல்', 'விளைபயன்',
+          'ஓவியக்கதிர்', 'நற்கதிர்', 'தாங்கெழில்', 'நிலவரையன்', 'விரிமாண்பு',
+          'முற்றறிவு', 'முழுநிறைவு', 'தீர்பகை', 'வளமாற்றம்', 'செய்நேர்த்தி',
+          'நற்குழவி', 'உயர்வாகை', 'வாகை', 'காதன்மை', 'வெம்முகம்',
+          'பொற்றாடை', 'அட்டி', 'எழில்மாறல்', 'வீறியெழல்', 'கீழறை',
+          'நற்செய்கை', 'மங்கலம்', 'பகைக்கோடு', 'உலக நிறைவு', 'அருள் தோற்றம்',
+          'நச்சுப்புழை', 'பிணைவிரகு', 'அழகு', 'பொதுநிலை', 'இகல்வீறு',
+          'கழிவிரக்கம்', 'நற்றலைமை', 'பெருமகிழ்ச்சி', 'பெருமறம்', 'தாமரை',
+          'பொன்மை', 'கருமை வீச்சு', 'முன்னியமுடிதல்', 'அழலி', 'கொடுமதி',
+          'பேரிகை', 'ஒடுங்கி', 'செம்மை', 'எதிரேற்றம்', 'வளங்கலன்'
+        ];
+
+        const gregorianYear = dateObj.getFullYear();
+        const yearIndex = ((gregorianYear - 1987) % 60 + 60) % 60;
+        const dynamicYearName = PURE_TAMIL_YEARS[yearIndex];
+        const monthInfo = TAMIL_MONTH_STARTS.find(m => m.monthNum === tMonth) || TAMIL_MONTH_STARTS[0];
+        const tamilMonthName = monthInfo.name;
+        const tamilSeason = monthInfo.season;
+
+        const calendarScript = `திருவள்ளுவர் ஆண்டு ${thiruvalluvarYear}, ${dynamicYearName}. திங்கள்: ${tamilMonthName}. நாள்: ${currentTDay}. கிழமை: ${dayOfWeek}. பருவம்: ${tamilSeason}.`;
+        
+        const escapeXml = (unsafe: string) => unsafe.replace(/[<>&'"]/g, c => {
+            switch (c) {
+                case '<': return '&lt;';
+                case '>': return '&gt;';
+                case '&': return '&amp;';
+                case '\'': return '&apos;';
+                case '"': return '&quot;';
+                default: return c;
+            }
+        });
+        const processedTamil = escapeXml(calendarScript).replace(/,/g, ' —');
+        const taSsml = `<speak>${processedTamil}</speak>`;
+        
+        const taRequest = {
+          input: { ssml: taSsml },
+          voice: { languageCode: 'ta-IN', name: `ta-IN-Chirp3-HD-${personaArg}` },
+          audioConfig: { audioEncoding: 'MP3' as const, speakingRate: 0.80, volumeGainDb: 6.0 },
+        };
+        
+        try {
+          const [taResponse] = await ttsClient.synthesizeSpeech(taRequest);
+          const writeFile = util.promisify(fs.writeFile);
+          
+          const rawTtsPath = path.join(calendarAudioDir, `${prefix}_calendar_tts_raw.mp3`);
+          await writeFile(rawTtsPath, taResponse.audioContent || new Uint8Array(), 'binary');
+          
+          const bgmPath = path.join(process.cwd(), '../../public', 'bgm.mp3');
+          if (fs.existsSync(bgmPath)) {
+            const ffmpegPath = getFfmpegPath();
+            console.log(`Mixing calendar TTS with BGM from ${bgmPath}...`);
+            const ttsDur = await getAudioDurationInSeconds(rawTtsPath);
+            const fadeOutStart = ttsDur + 2.5; // Starts fading exactly when speech ends
+
+            // amix normally reduces volume by 1/n. We boost speech to 3.0.
+            // adelay adds a 2.5 second intro of pure music before the speech starts.
+            // apad adds 1.5 seconds of silence at the end of speech, so amix keeps BGM playing.
+            // afade smoothly fades out the final 1.5 seconds of the mix.
+            // -ss 24 starts the BGM from the 24th second.
+            // We use an expression in the volume filter to start BGM at 1.0 volume, and duck it smoothly to 0.4 between 2.0s and 2.5s!
+            execSync(`"${ffmpegPath}" -y -i "${rawTtsPath}" -ss 24 -stream_loop -1 -i "${bgmPath}" -filter_complex "[0:a]adelay=2500|2500,apad=pad_dur=1.5,volume=3.0[a0];[1:a]volume='1.0-0.6*clip((t-2.0)/0.5,0,1)':eval=frame[a1];[a0][a1]amix=inputs=2:duration=first,afade=t=out:st=${fadeOutStart}:d=1.5[aout]" -map "[aout]" -c:a libmp3lame "${calendarAudioPath}"`, { stdio: 'ignore' });
+            fs.unlinkSync(rawTtsPath); // Clean up raw tts
+            console.log(`Saved calendar audio with BGM to ${calendarAudioPath}`);
+          } else {
+            // No BGM, just rename raw to final
+            fs.renameSync(rawTtsPath, calendarAudioPath);
+            console.log(`Saved calendar audio (no BGM) to ${calendarAudioPath}`);
+          }
+        } catch (err) {
+          console.error("Failed to generate calendar audio", err);
+        }
+      }
+
+      let calendarDur = 3;
+      if (fs.existsSync(calendarAudioPath)) {
+         calendarDur = await getAudioDurationInSeconds(calendarAudioPath);
+      }
+      const part1Frames = Math.max(90, Math.ceil(calendarDur * 30) + 30);
+      const part4Frames = 90;
+
       const mainProps = {
         dateStr,
-        tamilYear: tYear,
+        tamilYear: thiruvalluvarYear,
         tamilMonth: tMonth,
         tamilDay: currentTDay,
+        part1Duration: part1Frames,
         part2Duration: part2Frames,
         part3Duration: part3Frames,
+        part4Duration: part4Frames,
         kuralProps,
         meaningProps,
-        theme: selectedTheme
+        theme: selectedTheme,
+        calendarAudioPath: relativeCalendarAudioPath
       };
+
+      console.log('Bundling Remotion project...');
+      const bundled = await bundle(path.join(process.cwd(), 'src/video/index.ts'), () => undefined, {
+        webpackOverride: (config) => config,
+        publicDir: path.join(process.cwd(), '../../public')
+      });
       
+      console.log('Rendering Final Daily Video...');
       const compositions = await getCompositions(bundled, { inputProps: mainProps });
       const mainComp = compositions.find((c) => c.id === 'ThirukkuralShort');
+      
+      const totalFrames = part1Frames + part2Frames + part3Frames + part4Frames;
       mainComp!.durationInFrames = totalFrames;
 
       const dailyVideosDir = path.join(dataDir, 'Daily_Videos', tamilYm);
@@ -468,7 +600,7 @@ async function main() {
       const thumbnailPath = path.join(dailyVideosDir, `${tamilDateStr}_${prefix}_thumbnail.jpg`);
       console.log('Extracting clean calendar thumbnail...');
       try {
-        execSync(`"${ffmpegPath}" -y -ss 00:00:01 -i "${finalVideoPath}" -vframes 1 -q:v 2 "${thumbnailPath}"`, { stdio: 'ignore' });
+        execSync(`"${ffmpegPath}" -nostdin -y -ss 00:00:01 -i "${finalVideoPath}" -vframes 1 -q:v 2 "${thumbnailPath}"`, { stdio: 'ignore' });
         console.log(`Saved thumbnail to ${thumbnailPath}`);
       } catch (err) {
         console.warn('Failed to extract thumbnail during rendering:', err);
@@ -487,7 +619,7 @@ async function main() {
                        `[1:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[v1];` +
                        `[v0][0:a:0][v1][1:a:0]concat=n=2:v=1:a=1[v][a]`;
                        
-        execSync(`"${ffmpegPath}" -y -i "${introVideoPath}" -i "${tempFinalPath}" -filter_complex "${filter}" -map "[v]" -map "[a]" -c:v libx264 -c:a aac "${finalVideoPath}"`, { stdio: 'ignore' });
+        execSync(`"${ffmpegPath}" -nostdin -y -i "${introVideoPath}" -i "${tempFinalPath}" -filter_complex "${filter}" -map "[v]" -map "[a]" -c:v libx264 -c:a aac "${finalVideoPath}"`, { stdio: 'ignore' });
         console.log('Intro video stitched successfully (re-encoded to guarantee playback compatibility)!');
         
         fs.unlinkSync(tempFinalPath);
@@ -505,6 +637,7 @@ async function main() {
       } else {
         const readline = require('readline');
         const publishInput = await new Promise<string>((resolve) => {
+          if (process.env.NON_INTERACTIVE === 'true') return resolve('n');
           const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
           rl.question(`\nPublish Kural ${kural.Number} to YouTube? (y/N): `, (answer: string) => {
             rl.close();

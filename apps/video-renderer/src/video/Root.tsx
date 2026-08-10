@@ -18,10 +18,15 @@ export const RemotionRoot: React.FC = () => {
         height={1920}
         defaultProps={{
           dateStr: '2026-05-27',
+          tamilYear: 2057,
+          tamilMonth: 4,
+          tamilDay: 20,
+          part1Duration: 90,
           part2Duration: 450,
           part3Duration: 600,
+          part4Duration: 90,
           kuralProps: { title: 'Test Kural', line1: 'Line 1', line2: 'Line 2', transliteration1: 'Trans 1', transliteration2: 'Trans 2' },
-          meaningProps: { title: 'Test Kural', meaning: 'Meaning here', translation: 'Translation here' },
+          meaningProps: { title: 'Test Kural', meaningTamil: 'Meaning here', meaningEnglish: 'Translation here' },
           theme: THEMES.indigo
         }}
       />

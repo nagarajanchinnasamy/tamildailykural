@@ -4,7 +4,10 @@ credentials.json
 tmp/
 out/
 .DS_Store
+*.apk
 data/Daily_Videos/
+data/thirukkural.db
+public/Kurals/
 .gemini_chrome_profile/
 
 # Secrets

@@ -10,16 +10,17 @@ export const MainComposition: React.FC<{
   tamilYear: number;
   tamilMonth: number;
   tamilDay: number;
+  part1Duration: number;
   part2Duration: number;
   part3Duration: number;
+  part4Duration: number;
   kuralProps: any;
   meaningProps: any;
   theme: Theme;
-}> = ({ dateStr, tamilYear, tamilMonth, tamilDay, part2Duration, part3Duration, kuralProps, meaningProps, theme }) => {
+  calendarAudioPath?: string;
+}> = ({ dateStr, tamilYear, tamilMonth, tamilDay, part1Duration, part2Duration, part3Duration, part4Duration, kuralProps, meaningProps, theme, calendarAudioPath }) => {
   const { fps } = useVideoConfig();
   
-  const part1Duration = 3 * fps; // 3 seconds
-  const part4Duration = 3 * fps; // 3 seconds
 
   const startPart2 = part1Duration;
   const startPart3 = startPart2 + part2Duration;
@@ -29,7 +30,7 @@ export const MainComposition: React.FC<{
     <ThemeContext.Provider value={theme}>
       <AbsoluteFill style={{ backgroundColor: theme.bgTransition, fontFamily: 'sans-serif' }}>
         <Sequence from={0} durationInFrames={part1Duration}>
-          <Part1Calendar dateStr={dateStr} tamilYear={tamilYear} tamilMonth={tamilMonth} tamilDay={tamilDay} fadeOutOnly={true} />
+          <Part1Calendar dateStr={dateStr} tamilYear={tamilYear} tamilMonth={tamilMonth} tamilDay={tamilDay} fadeOutOnly={true} audioPath={calendarAudioPath} />
         </Sequence>
         
         <Sequence from={startPart2} durationInFrames={part2Duration}>
